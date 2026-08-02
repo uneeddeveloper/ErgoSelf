@@ -1,0 +1,168 @@
+@import 'tailwindcss';
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Token desain ErgoSelf
+   Diambil dari mockup Figma/Claude Design "ErgoSelf — App Screens"
+   (8 layar: registrasi, profil, body map, hasil CMDQ, SUS, hasil SUS,
+   ringkasan, admin dashboard).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* — Warna utama: teal — */
+  --color-brand-50: #f3fdfb;
+  --color-brand-100: #dcf7f1;
+  --color-brand-150: #e3ece8; /* panel teal lembut */
+  --color-brand-200: #d7e9e4; /* latar lencana risiko rendah */
+  --color-brand-300: #b7cdc5; /* garis putus-putus */
+  --color-brand-400: #2dd4bf; /* aksen gradien logo */
+  --color-brand-600: #0d9488; /* PRIMER — tombol, judul, ikon */
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+
+  /* — Netral — */
+  --color-ink: #1a1a1a; /* judul */
+  --color-ink-700: #374151; /* teks utama */
+  --color-ink-600: #4b5563; /* teks sekunder */
+  --color-ink-500: #6b7280; /* teks redup */
+  --color-ink-400: #9ca3af; /* placeholder */
+  --color-garis: #e5e7eb; /* garis kartu */
+  --color-garis-kuat: #d1d5db; /* garis input */
+  --color-panel: #eceeee; /* panel netral / navigasi bawah */
+  --color-panel-2: #f3f4f4;
+  --color-isian: #fafafa; /* latar input */
+
+  /* — Semantik risiko — */
+  --color-risiko-tinggi: #dc2626;
+  --color-risiko-tinggi-bg: #fecaca;
+  --color-risiko-tinggi-teks: #991b1b;
+  --color-risiko-sedang: #b45309;
+  --color-risiko-sedang-bg: #fde8cc;
+  --color-risiko-rendah: #0d9488;
+  --color-risiko-rendah-bg: #d7e9e4;
+  --color-info: #1d4ed8;
+  --color-info-bg: #dbeafe;
+
+  /* — Radius — */
+  --radius-input: 10px;
+  --radius-kartu: 14px;
+  --radius-panel: 16px;
+  --radius-layar: 24px;
+
+  /* — Bayangan — */
+  --shadow-layar: 0 12px 32px rgb(0 0 0 / 0.12);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply text-ink-700 antialiased;
+  background: linear-gradient(160deg, #e7fbf6, #eef1ef 40%) fixed;
+  min-height: 100vh;
+}
+
+/* Target sentuh minimal 44px — kuesioner diisi lewat HP/tablet di lapangan */
+@utility touch-target {
+  min-height: 44px;
+}
+
+/* ── Komponen berulang dari mockup ───────────────────────────────────────── */
+
+/* Kartu putih standar: white / border tipis / radius 14 */
+@utility kartu {
+  background: #fff;
+  border: 1px solid var(--color-garis);
+  border-radius: var(--radius-kartu);
+}
+
+/* Judul kelompok: 12px, tebal, huruf besar, teal */
+@utility label-seksi {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-brand-600);
+}
+
+/* Tombol utama: pil teal penuh */
+@utility tombol-utama {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0 1.25rem;
+  border-radius: 999px;
+  background: var(--color-brand-600);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  transition: background-color 0.15s;
+}
+@utility tombol-utama-hover {
+  background: var(--color-brand-700);
+}
+
+/* Tombol sekunder: pil bergaris teal */
+@utility tombol-kedua {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 46px;
+  padding: 0 1.25rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-brand-600);
+  color: var(--color-brand-600);
+  background: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  transition: background-color 0.15s;
+}
+
+/* Kolom isian: abu muda, radius 10 */
+@utility isian {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.6875rem 0.875rem;
+  border: 1px solid var(--color-garis-kuat);
+  border-radius: var(--radius-input);
+  background: var(--color-isian);
+  font-size: 0.875rem;
+  color: var(--color-ink);
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+@utility isian-fokus {
+  border-color: var(--color-brand-600);
+  box-shadow: 0 0 0 3px rgb(13 148 136 / 0.15);
+  background: #fff;
+}
+@utility isian-galat {
+  border-color: var(--color-risiko-tinggi);
+  background: #fef2f2;
+}
+
+/* Lencana pil kecil */
+@utility lencana {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

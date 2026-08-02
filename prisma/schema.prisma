@@ -1,0 +1,305 @@
+// ═══════════════════════════════════════════════════════════════════════════
+//  ErgoSelf — Skema Basis Data
+//  Tesis: Pengukuran Mandiri Keluhan Musculoskeletal Disorders pada Pengguna
+//         Komputer Menggunakan CMDQ Berbasis Aplikasi
+//  Magister Terapan K3 — Universitas Gadjah Mada
+// ═══════════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+  // Catatan TiDB: jika memakai TiDB Cloud Serverless versi lama yang belum
+  // mendukung FOREIGN KEY, aktifkan baris di bawah lalu jalankan `prisma db push`.
+  // relationMode = "prisma"
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  ENUM
+// ───────────────────────────────────────────────────────────────────────────
+
+enum JenisKelamin {
+  LAKI_LAKI
+  PEREMPUAN
+}
+
+/// Klasifikasi IMT sesuai Kemenkes RI (Depkes, 2003)
+///   < 17,0        Kurus — kekurangan BB tingkat berat
+///   17,0 – < 18,5 Kurus — kekurangan BB tingkat ringan
+///   18,5 – 25,0   Normal
+///   > 25,0 – 27,0 Gemuk — kelebihan BB tingkat ringan
+///   > 27,0        Obesitas
+enum KategoriImt {
+  KURUS_BERAT
+  KURUS_RINGAN
+  NORMAL
+  GEMUK_RINGAN
+  OBESITAS
+}
+
+enum Sisi {
+  TENGAH
+  KIRI
+  KANAN
+}
+
+/// Pengelompokan regional 28 segmen Nordic Body Map, untuk analisis
+/// deskriptif per regio di Bab IV
+enum RegioTubuh {
+  LEHER
+  BAHU
+  PUNGGUNG_PINGGANG
+  EKSTREMITAS_ATAS
+  EKSTREMITAS_BAWAH
+}
+
+enum KategoriRisiko {
+  RENDAH
+  SEDANG
+  TINGGI
+}
+
+/// Rentang akseptabilitas SUS (Bangor, Kortum & Miller, 2009)
+enum SusInterpretasi {
+  NOT_ACCEPTABLE // < 50
+  MARGINAL // 50 – 70
+  ACCEPTABLE // > 70
+}
+
+enum StatusPengisian {
+  BELUM
+  BERLANGSUNG
+  SELESAI
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  AUTENTIKASI PENELITI
+// ───────────────────────────────────────────────────────────────────────────
+
+model Admin {
+  id           Int      @id @default(autoincrement())
+  nama         String   @db.VarChar(120)
+  email        String   @unique @db.VarChar(160)
+  passwordHash String   @db.VarChar(255)
+  dibuatPada   DateTime @default(now())
+  diubahPada   DateTime @updatedAt
+
+  @@map("admin")
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  1. PROFIL PEKERJA / RESPONDEN
+// ───────────────────────────────────────────────────────────────────────────
+
+model Responden {
+  id Int @id @default(autoincrement())
+
+  // ── Akun (dibuat pada langkah 1: Registrasi) ────────────────────────────
+  /// Kode anonim responden untuk pelaporan & ekspor (mis. "PTX-001").
+  /// Bukan kredensial — masuk memakai email + kata sandi.
+  kodeResponden String @unique @db.VarChar(32)
+  nama          String @db.VarChar(120)
+  email         String @unique @db.VarChar(160)
+  passwordHash  String @db.VarChar(255)
+
+  /// Persetujuan etik penelitian (informed consent). Wajib dicentang saat
+  /// registrasi; tanggalnya direkam sebagai bukti kepatuhan etik riset.
+  setujuEtik         Boolean   @default(false)
+  tanggalPersetujuan DateTime?
+
+  // ── Profil pekerja (diisi pada langkah 2, terpisah dari registrasi) ─────
+  // Seluruh kolom di bawah opsional karena akun sudah ada sebelum profil
+  // terisi. Kelengkapannya ditandai oleh `statusProfil`.
+  unitKerja String? @db.VarChar(120)
+
+  // — Karakteristik individu —
+  usia         Int?
+  jenisKelamin JenisKelamin?
+
+  // — Karakteristik pekerjaan —
+  /// Masa kerja dalam tahun (desimal, mis. 2,5 tahun)
+  masaKerjaTahun           Decimal? @db.Decimal(4, 1)
+  /// Rata-rata durasi penggunaan komputer per hari (jam)
+  durasiKomputerJamPerHari Decimal? @db.Decimal(4, 1)
+
+  // — Antropometri —
+  tinggiBadanCm Decimal?     @db.Decimal(5, 1)
+  beratBadanKg  Decimal?     @db.Decimal(5, 1)
+  /// IMT = berat(kg) / tinggi(m)² — dihitung server-side, disimpan agar
+  /// dashboard bisa memfilter & mengagregasi tanpa kalkulasi ulang.
+  imt           Decimal?     @db.Decimal(5, 2)
+  kategoriImt   KategoriImt?
+
+  // — Faktor risiko individu —
+  olahraga                   Boolean?
+  frekuensiOlahragaPerMinggu Int?     @db.SmallInt
+  merokok                    Boolean?
+  riwayatMsds                Boolean?
+  keteranganRiwayatMsds      String?  @db.Text
+
+  // — Status pengisian (dipakai kolom "progress" di dashboard) —
+  statusProfil StatusPengisian @default(BELUM)
+  statusCmdq   StatusPengisian @default(BELUM)
+  statusSus    StatusPengisian @default(BELUM)
+
+  dibuatPada DateTime @default(now())
+  diubahPada DateTime @updatedAt
+
+  cmdqJawaban CmdqJawaban[]
+  cmdqHasil   CmdqHasil?
+  susJawaban  SusJawaban[]
+  susHasil    SusHasil?
+
+  @@index([jenisKelamin])
+  @@index([kategoriImt])
+  @@index([usia])
+  @@map("responden")
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  2. MASTER SEGMEN TUBUH — 28 segmen Nordic Body Map (indeks 0–27)
+//     Disimpan sebagai tabel master (bukan enum) supaya jumlah/urutan segmen
+//     bisa diubah lewat seed tanpa migrasi skema, dan supaya body map SVG
+//     bisa merujuk segmen lewat `kode`.
+// ───────────────────────────────────────────────────────────────────────────
+
+model SegmenTubuh {
+  id     Int        @id @default(autoincrement())
+  /// Kode stabil, dipakai sebagai id elemen <path> pada body map SVG
+  kode   String     @unique @db.VarChar(48)
+  nama   String     @db.VarChar(80) // label bahasa Indonesia (UI responden)
+  namaEn String     @db.VarChar(80) // istilah asli NBM (untuk lampiran tesis)
+  sisi   Sisi       @default(TENGAH)
+  regio  RegioTubuh
+  /// Nomor segmen NBM baku (0–27), sekaligus urutan tampil atas → bawah
+  urutan Int        @unique
+  aktif  Boolean    @default(true)
+
+  jawaban        CmdqJawaban[]
+  hasilTertinggi CmdqHasil[]   @relation("SegmenSkorTertinggi")
+
+  @@index([regio])
+  @@map("segmen_tubuh")
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  3. JAWABAN CMDQ (satu baris per responden per segmen)
+// ───────────────────────────────────────────────────────────────────────────
+
+model CmdqJawaban {
+  id          Int @id @default(autoincrement())
+  respondenId Int
+  segmenId    Int
+
+  /// Indeks pilihan frekuensi 0–3:
+  ///   0 = Tidak pernah | 1 = 1–2×/minggu | 2 = 3–4×/minggu | 3 = Setiap hari
+  frekuensiKode  Int     @db.SmallInt
+  /// Bobot frekuensi yang dipakai perhitungan. Skala linier 0 | 1 | 2 | 3.
+  /// Disimpan terpisah dari `frekuensiKode` supaya bobot bisa diganti
+  /// (mis. ke bobot baku CMDQ 0/1,5/3,5/5/10) tanpa mengubah skema.
+  frekuensiBobot Decimal @db.Decimal(4, 1)
+
+  /// 1 = Sedikit | 2 = Agak | 3 = Sangat tidak nyaman.
+  /// NULL bila frekuensi = "Tidak pernah" (pertanyaan tidak ditampilkan).
+  ketidaknyamananSkor Int? @db.SmallInt
+  /// 1 = Tidak sama sekali | 2 = Sedikit | 3 = Sangat mengganggu. NULL, idem.
+  gangguanSkor        Int? @db.SmallInt
+
+  /// skor = frekuensiBobot × ketidaknyamanan × gangguan  (rentang 0–27)
+  skor Decimal @db.Decimal(5, 2)
+
+  dibuatPada DateTime @default(now())
+  diubahPada DateTime @updatedAt
+
+  responden Responden   @relation(fields: [respondenId], references: [id], onDelete: Cascade)
+  segmen    SegmenTubuh @relation(fields: [segmenId], references: [id])
+
+  @@unique([respondenId, segmenId])
+  @@index([segmenId])
+  @@map("cmdq_jawaban")
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  4. REKAP HASIL CMDQ PER RESPONDEN
+// ───────────────────────────────────────────────────────────────────────────
+
+model CmdqHasil {
+  id          Int @id @default(autoincrement())
+  respondenId Int @unique
+
+  /// Σ skor seluruh segmen (0 – 27 × jumlah segmen = 0–756 untuk 28 segmen)
+  skorTotal              Decimal        @db.Decimal(7, 2)
+  /// Rata-rata skor per segmen
+  skorRataRata           Decimal        @db.Decimal(5, 2)
+  /// Jumlah segmen dengan skor > 0
+  jumlahSegmenBermasalah Int            @db.SmallInt
+  kategoriRisiko         KategoriRisiko
+  segmenTertinggiId      Int?
+  /// Nilai ambang & jumlah segmen yang berlaku saat perhitungan — direkam
+  /// agar hasil tetap dapat direproduksi bila ambang batas direvisi.
+  jumlahSegmenDinilai    Int            @db.SmallInt
+  ambangSedang           Decimal        @db.Decimal(7, 2)
+  ambangTinggi           Decimal        @db.Decimal(7, 2)
+
+  selesaiPada DateTime @default(now())
+  diubahPada  DateTime @updatedAt
+
+  responden       Responden    @relation(fields: [respondenId], references: [id], onDelete: Cascade)
+  segmenTertinggi SegmenTubuh? @relation("SegmenSkorTertinggi", fields: [segmenTertinggiId], references: [id])
+
+  @@index([kategoriRisiko])
+  @@index([segmenTertinggiId])
+  @@map("cmdq_hasil")
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  5. JAWABAN SUS (10 item, Likert 1–5)
+// ───────────────────────────────────────────────────────────────────────────
+
+model SusJawaban {
+  id          Int @id @default(autoincrement())
+  respondenId Int
+
+  /// 1–10 sesuai urutan baku kuesioner SUS (Brooke, 1996)
+  itemNomor   Int @db.SmallInt
+  /// 1 = Sangat Tidak Setuju … 5 = Sangat Setuju
+  skorJawaban Int @db.SmallInt
+
+  dibuatPada DateTime @default(now())
+  diubahPada DateTime @updatedAt
+
+  responden Responden @relation(fields: [respondenId], references: [id], onDelete: Cascade)
+
+  @@unique([respondenId, itemNomor])
+  @@map("sus_jawaban")
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  6. HASIL SUS PER RESPONDEN
+// ───────────────────────────────────────────────────────────────────────────
+
+model SusHasil {
+  id          Int @id @default(autoincrement())
+  respondenId Int @unique
+
+  /// Σ kontribusi item × 2,5 → rentang 0–100
+  skorTotal      Decimal         @db.Decimal(5, 2)
+  interpretasi   SusInterpretasi
+  /// Grade huruf (A–F) — Sauro & Lewis (2016)
+  gradeHuruf     String          @db.VarChar(2)
+  /// Adjective rating — Bangor et al. (2009)
+  adjektif       String          @db.VarChar(40)
+  /// Apakah memenuhi target penelitian (skor ≥ 68 = rata-rata industri)
+  memenuhiTarget Boolean
+
+  selesaiPada DateTime @default(now())
+  diubahPada  DateTime @updatedAt
+
+  responden Responden @relation(fields: [respondenId], references: [id], onDelete: Cascade)
+
+  @@index([interpretasi])
+  @@map("sus_hasil")
+}
