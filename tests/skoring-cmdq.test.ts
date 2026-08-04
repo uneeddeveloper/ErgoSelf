@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { SEGMEN_TUBUH, JUMLAH_SEGMEN } from '../lib/cmdq/segmen'
 import {
-  SKOR_SEGMEN_MAKS,
-  SKOR_TOTAL_MAKS,
+  AMBANG_SEGMEN_SEDANG,
+  AMBANG_SEGMEN_TINGGI,
   AMBANG_TOTAL_SEDANG,
   AMBANG_TOTAL_TINGGI,
+  BOBOT_FREKUENSI,
+  SKALA_FREKUENSI,
+  SKALA_GANGGUAN,
+  SKALA_KETIDAKNYAMANAN,
+  SKOR_SEGMEN_MAKS,
+  SKOR_TOTAL_MAKS,
 } from '../lib/cmdq/skala'
+import { perluRujukan } from '../lib/rekomendasi'
 import {
   GalatJawabanCmdq,
   hitungSkorCmdq,
@@ -259,5 +266,101 @@ describe('hitungSkorCmdq — validasi kelengkapan', () => {
       gangguanSkor: 2,
     })
     expect(() => hitungSkorCmdq(jawaban)).toThrow(/Tangan kanan/)
+  })
+})
+
+describe('pemenang seri pada segmenTertinggi', () => {
+  /**
+   * Kasus lazim di data ergonomi kantor: sepasang segmen kiri/kanan dilaporkan
+   * identik. Aturannya — yang lebih dulu pada urutan NBM menang — tidak punya
+   * konsekuensi numerik, tetapi menentukan isi kolom `CMDQ_Segmen_Tertinggi`
+   * pada berkas ekspor dan kartu "titik ketidaknyamanan" pada laporan
+   * responden. Tanpa uji ini, mengganti `>` menjadi `>=` di `skoring.ts`
+   * membalik setiap seri tanpa satu pun uji gagal.
+   */
+  const maksimum = { frekuensiKode: 3, ketidaknyamananSkor: 3, gangguanSkor: 3 }
+
+  it('memilih segmen dengan urutan NBM terkecil saat skornya sama', () => {
+    const jawaban = dengan(
+      dengan(jawabanKosong(), 'BAHU_KIRI', maksimum),
+      'BAHU_KANAN',
+      maksimum,
+    )
+    const hasil = hitungSkorCmdq(jawaban)
+
+    expect(hasil.segmenTertinggi?.skor).toBe(SKOR_SEGMEN_MAKS)
+    // BAHU_KIRI berurutan 2, BAHU_KANAN berurutan 3.
+    expect(hasil.segmenTertinggi?.kodeSegmen).toBe('BAHU_KIRI')
+  })
+
+  it('tetap memilih skor tertinggi walau muncul belakangan pada urutan', () => {
+    const jawaban = dengan(
+      dengan(jawabanKosong(), 'LEHER_ATAS', {
+        frekuensiKode: 1,
+        ketidaknyamananSkor: 1,
+        gangguanSkor: 1,
+      }),
+      'KAKI_KANAN',
+      maksimum,
+    )
+    expect(hitungSkorCmdq(jawaban).segmenTertinggi?.kodeSegmen).toBe('KAKI_KANAN')
+  })
+
+  it('mengembalikan null bila tidak ada keluhan sama sekali', () => {
+    expect(hitungSkorCmdq(jawabanKosong()).segmenTertinggi).toBeNull()
+  })
+})
+
+describe('integritas instrumen — angka yang dikutip Bab III', () => {
+  /**
+   * Nilai di bawah masuk ke naskah tesis dan ke lembar Kamus Data pada berkas
+   * ekspor. Setelah pengumpulan data dimulai, mengubahnya berarti dataset
+   * memuat dua aturan skoring yang berbeda tanpa penanda. Uji ini memaku
+   * angkanya sebagai literal — bila memang perlu diubah, perubahan itu harus
+   * disengaja dan terlihat pada diff.
+   */
+  it('memakai bobot frekuensi linier 0–3', () => {
+    expect([...BOBOT_FREKUENSI]).toEqual([0, 1, 2, 3])
+  })
+
+  it('memakai 4 opsi frekuensi, 3 opsi ketidaknyamanan, 3 opsi gangguan', () => {
+    expect(SKALA_FREKUENSI).toHaveLength(4)
+    expect(SKALA_KETIDAKNYAMANAN).toHaveLength(3)
+    expect(SKALA_GANGGUAN).toHaveLength(3)
+  })
+
+  it('memakai ambang segmen 9 dan 18 dari maksimum 27', () => {
+    expect(SKOR_SEGMEN_MAKS).toBe(27)
+    expect(AMBANG_SEGMEN_SEDANG).toBe(9)
+    expect(AMBANG_SEGMEN_TINGGI).toBe(18)
+  })
+
+  it('memakai ambang total 252 dan 504 dari maksimum 756', () => {
+    expect(SKOR_TOTAL_MAKS).toBe(756)
+    expect(AMBANG_TOTAL_SEDANG).toBe(252)
+    expect(AMBANG_TOTAL_TINGGI).toBe(504)
+  })
+
+  it('memicu rujukan dari satu segmen berat, bukan dari kategori risiko total', () => {
+    // Delapan bagian tubuh pada tingkat keluhan maksimum menghasilkan skor
+    // total 216 — masih berkategori RENDAH karena ambang SEDANG ada di 252.
+    // Karena itu rujukan tenaga kesehatan tidak boleh bergantung padanya.
+    const maksimum = { frekuensiKode: 3, ketidaknyamananSkor: 3, gangguanSkor: 3 }
+    const delapan = [
+      'LEHER_ATAS', 'LEHER_BAWAH', 'BAHU_KIRI', 'BAHU_KANAN',
+      'PUNGGUNG', 'PINGGANG', 'SIKU_KIRI', 'SIKU_KANAN',
+    ].reduce((akum, kode) => dengan(akum, kode, maksimum), jawabanKosong())
+
+    const hasil = hitungSkorCmdq(delapan)
+
+    expect(hasil.skorTotal).toBe(216)
+    expect(hasil.kategoriRisiko).toBe('RENDAH')
+    expect(
+      perluRujukan({
+        kategoriRisiko: hasil.kategoriRisiko,
+        regioBermasalah: [],
+        skorSegmenTertinggi: hasil.segmenTertinggi?.skor ?? 0,
+      }),
+    ).toBe(true)
   })
 })

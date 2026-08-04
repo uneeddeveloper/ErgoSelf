@@ -230,3 +230,45 @@ describe('hitungSkorSus — validasi', () => {
     expect(() => hitungSkorSus(salah)).toThrow(GalatJawabanSus)
   })
 })
+
+describe('jendela 67,5–72,5 — target penelitian vs band akseptabilitas', () => {
+  /**
+   * `memenuhiTarget` (≥ 68, rata-rata industri) dan `interpretasi`
+   * (akseptabilitas Bangor dkk.) adalah dua kerangka berbeda yang sengaja
+   * dipakai bersama, dan keduanya BISA tidak sepakat. Skor 70 memenuhi target
+   * penelitian namun masih berkategori MARGINAL — keduanya tampil di layar
+   * yang sama.
+   *
+   * Ini bukan cacat, melainkan hal yang harus dijelaskan satu kalimat di Bab
+   * IV. Uji ini memakukannya supaya tidak ada yang "memperbaiki" salah satu
+   * ambang agar terlihat konsisten.
+   */
+  it('skor 67,5 — belum memenuhi target, kategori MARGINAL', () => {
+    const hasil = hitungSkorSus(dariArray([5, 3, 5, 3, 5, 4, 5, 4, 5, 4]))
+    expect(hasil.skorTotal).toBe(67.5)
+    expect(hasil.interpretasi).toBe('MARGINAL')
+    expect(hasil.memenuhiTarget).toBe(false)
+  })
+
+  it('skor 70 — SUDAH memenuhi target, tetapi masih MARGINAL', () => {
+    const hasil = hitungSkorSus(dariArray([5, 3, 5, 3, 5, 3, 5, 4, 5, 4]))
+    expect(hasil.skorTotal).toBe(70)
+    expect(hasil.interpretasi).toBe('MARGINAL')
+    expect(hasil.memenuhiTarget).toBe(true)
+  })
+
+  it('skor 72,5 — memenuhi target dan sudah ACCEPTABLE', () => {
+    const hasil = hitungSkorSus(dariArray([5, 3, 5, 3, 5, 3, 5, 3, 5, 4]))
+    expect(hasil.skorTotal).toBe(72.5)
+    expect(hasil.interpretasi).toBe('ACCEPTABLE')
+    expect(hasil.memenuhiTarget).toBe(true)
+  })
+
+  it('tidak ada skor yang mungkin di antara 70 dan 72,5', () => {
+    // Skor SUS selalu kelipatan 2,5, jadi konvensi `>70` vs `>=70` hanya
+    // berpengaruh tepat di 70,0 — nilai yang memang dapat dicapai.
+    expect(TARGET_SUS).toBe(68)
+    expect(interpretasiSus(70)).toBe('MARGINAL')
+    expect(interpretasiSus(72.5)).toBe('ACCEPTABLE')
+  })
+})

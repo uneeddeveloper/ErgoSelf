@@ -86,6 +86,33 @@ describe('evaluasiImt', () => {
     expect(hasil.kategori).toBe('NORMAL')
   })
 
+  /**
+   * Pembulatan-lalu-klasifikasi berlaku di KEEMPAT batas, bukan hanya di 25,0.
+   * Sebelumnya hanya satu yang dipatok, sehingga tiga batas lain bisa berubah
+   * perilaku tanpa satu pun uji gagal. Jendelanya ±0,005 IMT — kecil, tetapi
+   * dapat direproduksi penguji, dan setiap kasus yang jatuh ke dalamnya masuk
+   * sel yang salah pada tabel distribusi IMT di Bab IV.
+   */
+  it.each([
+    { berat: 43.52, tinggi: 160, imt: 17, kategori: 'KURUS_RINGAN', sejati: '16,99999…' },
+    { berat: 47.35, tinggi: 160, imt: 18.5, kategori: 'NORMAL', sejati: '18,49609…' },
+    { berat: 69.13, tinggi: 160, imt: 27, kategori: 'GEMUK_RINGAN', sejati: '27,00390…' },
+  ])(
+    'membulatkan lebih dulu di batas $imt (IMT sejati $sejati → $kategori)',
+    ({ berat, tinggi, imt, kategori }) => {
+      const hasil = evaluasiImt(berat, tinggi)
+      expect(hasil.imt).toBe(imt)
+      expect(hasil.kategori).toBe(kategori)
+    },
+  )
+
+  it('menerima nilai tepat pada batas masukan yang diizinkan', () => {
+    // Batas persis; pergeseran `<` ↔ `<=` di lib/imt.ts tidak akan terlihat
+    // dari uji yang hanya memakai nilai jauh di luar rentang.
+    expect(() => evaluasiImt(25, 100)).not.toThrow()
+    expect(() => evaluasiImt(250, 250)).not.toThrow()
+  })
+
   it('menandai obesitas pada kombinasi berat–tinggi yang tinggi', () => {
     const hasil = evaluasiImt(85, 165)
     expect(hasil.imt).toBe(31.22)
