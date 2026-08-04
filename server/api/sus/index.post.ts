@@ -23,6 +23,8 @@ const skema = z.object({
 
 export default defineEventHandler(async (event) => {
   const sesi = await wajibResponden(event)
+  await wajibTahapSelesai(sesi.id, { profil: true, cmdq: true })
+
   const isi = skema.safeParse(await readBody(event))
 
   if (!isi.success) {
@@ -46,6 +48,11 @@ export default defineEventHandler(async (event) => {
     throw error
   }
 
+  // Batas waktu dinaikkan dari bawaan Prisma (maxWait 2 dtk / timeout 5 dtk).
+  // Transaksi ini beberapa kali bolak-balik ke basis data lintas wilayah AWS;
+  // pada TiDB Serverless yang baru bangun dari suspensi, atau lewat koneksi
+  // seluler yang buruk saat pengambilan data di lapangan, bawaannya bisa habis
+  // dan seluruh jawaban dibatalkan.
   await prisma.$transaction(async (tx) => {
     await tx.susJawaban.deleteMany({ where: { respondenId: sesi.id } })
 
@@ -75,7 +82,7 @@ export default defineEventHandler(async (event) => {
       where: { id: sesi.id },
       data: { statusSus: 'SELESAI' },
     })
-  })
+  }, BATAS_TRANSAKSI)
 
   return { sukses: true, hasil }
 })

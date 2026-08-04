@@ -7,6 +7,22 @@ export default defineNuxtConfig({
 
   modules: ['nuxt-auth-utils'],
 
+  /**
+   * Tanpa blok ini `maxAge` tidak terisi, sehingga cookie tidak punya waktu
+   * kedaluwarsa DAN token tersegelnya disegel dengan ttl 0 — artinya berlaku
+   * selamanya. Token yang terambil dari perangkat lapangan bersama akan tetap
+   * sah tanpa batas, dan karena sesi bersifat stateless ia juga tidak bisa
+   * dicabut: mengganti kata sandi tidak membatalkan sesi yang sudah berjalan.
+   *
+   * Delapan jam menutupi satu sesi pengisian sekaligus satu shift kerja.
+   */
+  session: {
+    maxAge: 60 * 60 * 8,
+    cookie: {
+      sameSite: 'lax',
+    },
+  },
+
   css: ['~/assets/css/main.css'],
 
   vite: {

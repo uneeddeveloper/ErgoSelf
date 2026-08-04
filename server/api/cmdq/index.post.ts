@@ -37,6 +37,8 @@ const skemaJawaban = z.object({
 
 export default defineEventHandler(async (event) => {
   const sesi = await wajibResponden(event)
+  await wajibTahapSelesai(sesi.id, { profil: true })
+
   const isi = skemaJawaban.safeParse(await readBody(event))
 
   if (!isi.success) {
@@ -79,6 +81,10 @@ export default defineEventHandler(async (event) => {
   }
 
   // ── Simpan dalam satu transaksi ────────────────────────────────────────
+  // Batas waktu dinaikkan dari bawaan Prisma: transaksi ini menulis 28 baris
+  // plus rekap lewat beberapa perjalanan bolak-balik. Bila bawaan 5 detik
+  // terlampaui, seluruh jawaban responden dibatalkan dan ia melihat galat 500
+  // tanpa tahu apakah datanya tersimpan.
   await prisma.$transaction(async (tx) => {
     await tx.cmdqJawaban.deleteMany({ where: { respondenId: sesi.id } })
 
@@ -117,7 +123,7 @@ export default defineEventHandler(async (event) => {
       where: { id: sesi.id },
       data: { statusCmdq: 'SELESAI' },
     })
-  })
+  }, BATAS_TRANSAKSI)
 
   return {
     sukses: true,

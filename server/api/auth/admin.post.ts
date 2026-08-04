@@ -1,4 +1,3 @@
-import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 
 /**
@@ -16,6 +15,11 @@ const skema = z.object({
 const PESAN_GAGAL = 'Email atau kata sandi salah.'
 
 export default defineEventHandler(async (event) => {
+  // Akun ini membuka seluruh dataset kesehatan penelitian. Pembatasan
+  // percobaan di sini adalah satu-satunya penghalang antara internet dan
+  // ekspor lengkap rekam kesehatan responden.
+  batasiPercobaan(event, 'masuk-admin')
+
   const hasil = skema.safeParse(await readBody(event))
 
   if (!hasil.success) {
@@ -25,15 +29,14 @@ export default defineEventHandler(async (event) => {
   const email = hasil.data.email.trim().toLowerCase()
   const admin = await prisma.admin.findUnique({ where: { email } })
 
-  // Tetap jalankan bcrypt.compare walau admin tidak ditemukan, agar waktu
-  // respons tidak membocorkan keberadaan akun (timing attack).
-  const hashPembanding =
-    admin?.passwordHash ?? '$2a$10$invalidinvalidinvalidinvalidinvalidinvalidin'
-  const cocok = await bcrypt.compare(hasil.data.password, hashPembanding)
+  // Perbandingan selalu dijalankan penuh — lihat `server/utils/sandi.ts`.
+  const cocok = await cocokkanSandi(hasil.data.password, admin?.passwordHash)
 
   if (!admin || !cocok) {
     throw createError({ statusCode: 401, statusMessage: PESAN_GAGAL })
   }
+
+  resetPercobaan(event, 'masuk-admin')
 
   await setUserSession(event, {
     user: {

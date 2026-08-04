@@ -1,4 +1,3 @@
-import bcrypt from 'bcryptjs'
 import { skemaMasukResponden } from '~~/lib/validasi/akun'
 
 /**
@@ -12,6 +11,8 @@ import { skemaMasukResponden } from '~~/lib/validasi/akun'
 const PESAN_GAGAL = 'Email atau kata sandi salah.'
 
 export default defineEventHandler(async (event) => {
+  batasiPercobaan(event, 'masuk-responden')
+
   const hasil = skemaMasukResponden.safeParse(await readBody(event))
 
   if (!hasil.success) {
@@ -33,16 +34,18 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  // Tetap jalankan bcrypt.compare walau akun tidak ditemukan, agar waktu
-  // respons tidak membocorkan keberadaan akun (timing attack).
-  const hashPembanding =
-    responden?.passwordHash ??
-    '$2a$10$invalidinvalidinvalidinvalidinvalidinvalidin'
-  const cocok = await bcrypt.compare(hasil.data.password, hashPembanding)
+  // Tetap jalankan perbandingan penuh walau akun tidak ditemukan, agar waktu
+  // respons tidak membocorkan keberadaan akun. `cocokkanSandi` memakai hash
+  // umpan yang SAH bila argumennya kosong — hash asal-asalan akan ditolak
+  // bcrypt karena panjang dan kembali seketika, justru membuka celah yang
+  // hendak ditutup.
+  const cocok = await cocokkanSandi(hasil.data.password, responden?.passwordHash)
 
   if (!responden || !cocok) {
     throw createError({ statusCode: 401, statusMessage: PESAN_GAGAL })
   }
+
+  resetPercobaan(event, 'masuk-responden')
 
   await setUserSession(event, {
     user: {

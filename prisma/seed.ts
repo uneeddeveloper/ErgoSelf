@@ -50,7 +50,20 @@ async function seedAdmin() {
     return
   }
 
-  const passwordHash = await bcrypt.hash(password, 10)
+  // Akun ini membuka seluruh dataset kesehatan penelitian, sementara skema
+  // validasi kata sandi responden tidak berlaku untuknya — nilainya diambil
+  // langsung dari variabel lingkungan. Tanpa pemeriksaan di sini,
+  // `ADMIN_PASSWORD=admin123` diterima tanpa suara.
+  const PANJANG_SANDI_ADMIN_MIN = 12
+  if (password.length < PANJANG_SANDI_ADMIN_MIN) {
+    throw new Error(
+      `ADMIN_PASSWORD terlalu pendek (${password.length} karakter). ` +
+        `Gunakan minimal ${PANJANG_SANDI_ADMIN_MIN} karakter — akun ini membuka seluruh data kesehatan responden.`,
+    )
+  }
+
+  // Faktor biaya disamakan dengan yang dipakai aplikasi (server/utils/sandi.ts).
+  const passwordHash = await bcrypt.hash(password, 12)
 
   await prisma.admin.upsert({
     where: { email },

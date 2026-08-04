@@ -14,8 +14,15 @@ export default defineEventHandler(async (event) => {
   const { where, aktif } = bacaFilter(event)
   const q = getQuery(event)
 
-  const halaman = Math.max(1, Number(q.halaman) || 1)
-  const perHalaman = Math.min(200, Math.max(10, Number(q.perHalaman) || 25))
+  // `Math.trunc` wajib: Prisma menuntut Int untuk skip/take, dan `?halaman=1.5`
+  // menghasilkan `skip: 12.5` yang melempar PrismaClientValidationError tak
+  // tertangani — satu-satunya tempat di API ini query string mencapai Prisma
+  // tanpa daftar-putih. `Math.min` menahan `?halaman=1e999` (Infinity).
+  const halaman = Math.min(1e6, Math.max(1, Math.trunc(Number(q.halaman)) || 1))
+  const perHalaman = Math.min(
+    200,
+    Math.max(10, Math.trunc(Number(q.perHalaman)) || 25),
+  )
 
   const [total, baris] = await Promise.all([
     prisma.responden.count({ where }),

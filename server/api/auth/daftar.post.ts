@@ -1,5 +1,4 @@
 import { Prisma } from '@prisma/client'
-import bcrypt from 'bcryptjs'
 import { skemaDaftarAkun } from '~~/lib/validasi/akun'
 import { petaGalat } from '~~/lib/validasi/responden'
 
@@ -17,6 +16,12 @@ import { petaGalat } from '~~/lib/validasi/responden'
 const MAKS_PERCOBAAN_KODE = 5
 
 export default defineEventHandler(async (event) => {
+  // Balasan 409 di bawah membocorkan apakah sebuah surel sudah terdaftar
+  // sebagai partisipan. Pesan itu dibutuhkan responden yang lupa sudah
+  // mendaftar, jadi yang dibatasi adalah lajunya: menyapu daftar surel satu
+  // perusahaan menjadi tidak praktis.
+  batasiPercobaan(event, 'daftar')
+
   const hasil = skemaDaftarAkun.safeParse(await readBody(event))
 
   if (!hasil.success) {
@@ -42,7 +47,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const passwordHash = await bcrypt.hash(data.password, 10)
+  const passwordHash = await hashSandi(data.password)
 
   for (let percobaan = 1; percobaan <= MAKS_PERCOBAAN_KODE; percobaan++) {
     const kodeResponden = await kodeRespondenBerikutnya()

