@@ -84,6 +84,51 @@ const gayaStatus = {
   },
 } as const
 
+// ── Penarikan diri dari penelitian ─────────────────────────────────────────
+
+const mencabut = ref(false)
+const galatCabut = ref('')
+
+/**
+ * Konfirmasi berlapis dengan ketik-ulang. Penghapusan bersifat permanen dan
+ * menghapus seluruh jawaban kuesioner responden — bukan aksi yang boleh
+ * terjadi karena satu ketukan meleset di layar sentuh.
+ */
+async function cabutPartisipasi() {
+  galatCabut.value = ''
+
+  const jawab = window.prompt(
+    'Seluruh data Anda akan dihapus PERMANEN dari penelitian ini dan tidak dapat dikembalikan.\n\n' +
+      'Bila Anda yakin, ketik: HAPUS DATA SAYA',
+  )
+  if (jawab === null) return
+  if (jawab.trim() !== 'HAPUS DATA SAYA') {
+    galatCabut.value = 'Konfirmasi tidak sesuai. Data Anda tidak dihapus.'
+    return
+  }
+
+  mencabut.value = true
+  try {
+    await $fetch('/api/responden/saya', {
+      method: 'DELETE',
+      body: { konfirmasi: 'HAPUS DATA SAYA' },
+    })
+    // Draf lokal ikut dibersihkan supaya tidak ada sisa jawaban di perangkat.
+    if (import.meta.client) {
+      for (const kunci of Object.keys(localStorage)) {
+        if (kunci.startsWith('ergoself:draf:')) localStorage.removeItem(kunci)
+      }
+    }
+    await navigateTo('/')
+  } catch (error: any) {
+    galatCabut.value =
+      error?.data?.statusMessage ??
+      error?.statusMessage ??
+      'Gagal menghapus data. Periksa koneksi Anda lalu coba lagi.'
+    mencabut.value = false
+  }
+}
+
 /** Langkah berikutnya yang perlu dikerjakan responden. */
 const berikutnya = computed(() =>
   langkah.value.find((l) => l.status !== 'SELESAI' && !l.terkunci),
@@ -158,7 +203,7 @@ const tahapSekarang = computed(() => {
         </p>
       </header>
 
-      <UiProgres :tahap="tahapSekarang" :total-tahap="5" keterangan="Kemajuan keseluruhan" />
+      <UiProgres :tahap="tahapSekarang" keterangan="Kemajuan keseluruhan" />
 
       <!-- Ajakan ke langkah berikutnya -->
       <NuxtLink
@@ -266,6 +311,27 @@ const tahapSekarang = computed(() => {
             <span class="ml-auto" aria-hidden="true">→</span>
           </p>
         </NuxtLink>
+      </div>
+
+      <!--
+        Penarikan diri. Lembar persetujuan menjanjikan "Anda boleh berhenti
+        kapan saja"; tanpa jalur ini janji itu tidak bisa dipenuhi perangkat
+        lunaknya, dan UU PDP 27/2022 memberi hak penghapusan atas data
+        kesehatan. Diletakkan paling bawah, kecil, dan berkonfirmasi ketik —
+        tersedia tanpa perlu dicari, tetapi tidak mungkin tersentuh tak sengaja.
+      -->
+      <div class="border-t border-garis pt-4">
+        <p v-if="galatCabut" class="mb-2 text-xs font-semibold text-risiko-tinggi" role="alert">
+          {{ galatCabut }}
+        </p>
+        <button
+          type="button"
+          class="touch-target rounded-input px-2 text-xs text-ink-500 underline underline-offset-2 transition hover:text-risiko-tinggi focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:outline-none"
+          :disabled="mencabut"
+          @click="cabutPartisipasi"
+        >
+          {{ mencabut ? 'Menghapus…' : 'Berhenti berpartisipasi & hapus data saya' }}
+        </button>
       </div>
     </template>
   </div>

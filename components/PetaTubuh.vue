@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  AREA_SEGMEN,
+  AREA_SENTUH,
   BERKAS_CAHAYA,
   CINCIN,
   DETAIL_TAMPAK,
@@ -27,12 +27,22 @@ import { kategorikanSkorSegmen } from '~~/lib/cmdq/skoring'
  * jelas — termasuk di layar HP yang dipakai di lantai produksi.
  */
 
-const props = defineProps<{
-  /** Skor per kode segmen; kunci yang tidak ada berarti belum dijawab */
-  skor: Record<string, number>
-  /** Segmen yang sedang dibuka panel pertanyaannya */
-  aktif?: string | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** Skor per kode segmen; kunci yang tidak ada berarti tidak ada keluhan */
+    skor: Record<string, number>
+    /** Segmen yang sedang dibuka panel pertanyaannya */
+    aktif?: string | null
+    /**
+     * Bila false, peta hanya menampilkan hasil: tanpa `role="button"`,
+     * tanpa `tabindex`, tanpa penangan sentuh. Dipakai di halaman ringkasan
+     * yang mencetak laporan — di sana 28 tombol yang tidak melakukan apa-apa
+     * hanya menjadi perhentian tab yang membingungkan.
+     */
+    interaktif?: boolean
+  }>(),
+  { aktif: null, interaktif: true },
+)
 
 const emit = defineEmits<{ pilih: [kode: string] }>()
 
@@ -64,6 +74,20 @@ function transformasi(a: { x: number; y: number; w: number; h: number }, kode: s
 const namaSegmen = new Map(SEGMEN_TUBUH.map((s) => [s.kode, s.nama]))
 
 /**
+ * Penjelasan pembeda untuk segmen yang namanya rancu bagi orang awam —
+ * terutama "bokong" (buttock) vs "pantat" (bottom).
+ *
+ * Teks ini juga tampil di panel pertanyaan, tetapi panel itu baru terbuka
+ * SETELAH responden mengetuk. Artinya orang yang tidak bisa membedakan keduanya
+ * harus menebak dulu untuk membaca penjelasan yang justru dimaksudkan mencegah
+ * tebakan itu. Karena itu penjelasannya ikut dibawa ke label peta, sehingga
+ * terbaca lebih dulu lewat sorotan, fokus papan tik, maupun pembaca layar.
+ */
+const petunjukSegmen = new Map(
+  SEGMEN_TUBUH.filter((s) => s.petunjuk).map((s) => [s.kode, s.petunjuk!]),
+)
+
+/**
  * Palet hologram: isian tembus pandang + garis menyala. `pendar` menandai
  * status yang perlu efek cahaya — hanya dipakai pada segmen berkeluhan supaya
  * penapis blur SVG tidak dijalankan 28 kali sekaligus.
@@ -72,12 +96,6 @@ const GAYA = {
   BELUM: {
     isi: 'rgba(52,211,153,0.07)',
     garis: 'rgba(167,243,208,0.35)',
-    tebal: 1,
-    pendar: false,
-  },
-  TIDAK_ADA: {
-    isi: 'rgba(190,205,196,0.10)',
-    garis: 'rgba(190,205,196,0.40)',
     tebal: 1,
     pendar: false,
   },
@@ -103,19 +121,27 @@ const GAYA = {
 
 type StatusArea = keyof typeof GAYA
 
+/**
+ * Segmen tanpa entri dan segmen berskor 0 diperlakukan sama, karena memang
+ * sama: keduanya berarti responden tidak melaporkan keluhan di sana. Halaman
+ * kuesioner mengirim segmen tak tertandai sebagai frekuensi 0, jadi tidak ada
+ * keadaan "belum dijawab" yang sebenarnya.
+ */
 function status(kode: string): StatusArea {
   const nilai = props.skor[kode]
-  if (nilai === undefined) return 'BELUM'
-  if (nilai <= 0) return 'TIDAK_ADA'
+  if (nilai === undefined || nilai <= 0) return 'BELUM'
   return kategorikanSkorSegmen(nilai) as StatusArea
 }
 
 function keterangan(kode: string): string {
   const nama = namaSegmen.get(kode) ?? kode
+  const petunjuk = petunjukSegmen.get(kode)
+  const judul = petunjuk ? `${nama} (${petunjuk})` : nama
   const nilai = props.skor[kode]
-  if (nilai === undefined) return `${nama} — belum dijawab`
-  if (nilai <= 0) return `${nama} — tidak ada keluhan`
-  return `${nama} — skor ${nilai}`
+  // "Belum dijawab" sengaja dihindari: segmen yang tidak ditandai memang
+  // dikirim sebagai "tidak pernah ada keluhan", jadi ia sudah terjawab.
+  if (nilai === undefined || nilai <= 0) return `${judul} — tidak ada keluhan`
+  return `${judul} — skor ${nilai}`
 }
 
 /** Penapis cahaya dipasang saat segmen berkeluhan atau sedang disorot. */
@@ -139,8 +165,8 @@ function busurDepan(cx: number, cy: number, rx: number, ry: number): string {
 
 const TAMPAK: readonly Tampak[] = ['DEPAN', 'BELAKANG']
 const areaTersusun = [
-  ...AREA_SEGMEN.filter((a) => a.tampak === 'DEPAN'),
-  ...AREA_SEGMEN.filter((a) => a.tampak === 'BELAKANG'),
+  ...AREA_SENTUH.filter((a) => a.tampak === 'DEPAN'),
+  ...AREA_SENTUH.filter((a) => a.tampak === 'BELAKANG'),
 ]
 </script>
 
@@ -313,25 +339,34 @@ const areaTersusun = [
       <g
         v-for="a in areaTersusun"
         :key="a.kode"
-        role="button"
-        tabindex="0"
-        class="cursor-pointer outline-none transition-opacity duration-150"
+        :role="props.interaktif ? 'button' : undefined"
+        :tabindex="props.interaktif ? 0 : undefined"
+        :class="[
+          'outline-none transition-opacity duration-150',
+          props.interaktif ? 'cursor-pointer' : 'pointer-events-none',
+        ]"
         :style="{ opacity: opasitas(a.kode) }"
-        :aria-label="keterangan(a.kode)"
-        :aria-pressed="props.aktif === a.kode"
-        @click="emit('pilih', a.kode)"
-        @keydown="tekan($event, a.kode)"
-        @pointerenter="disorot = a.kode"
-        @pointerleave="disorot = null"
-        @focus="disorot = a.kode"
-        @blur="disorot = null"
+        :aria-label="props.interaktif ? keterangan(a.kode) : undefined"
+        :aria-pressed="props.interaktif ? props.aktif === a.kode : undefined"
+        @click="props.interaktif && emit('pilih', a.kode)"
+        @keydown="props.interaktif && tekan($event, a.kode)"
+        @pointerenter="props.interaktif && (disorot = a.kode)"
+        @pointerleave="props.interaktif && (disorot = null)"
+        @focus="props.interaktif && (disorot = a.kode)"
+        @blur="props.interaktif && (disorot = null)"
       >
-        <!-- Lapisan tak terlihat: memperbesar target sentuh ±5 unit -->
+        <!--
+          Lapisan tak terlihat yang memperbesar target sentuh. Ukurannya
+          dihitung di `lib/cmdq/bodymap.ts` sebagai setengah jarak ke tetangga
+          terdekat, sehingga dua area tidak pernah saling menindih. Bantalan
+          tetap ±5 unit sebelumnya membuat ketukan pada BOKONG tercatat sebagai
+          PANTAT.
+        -->
         <rect
-          :x="a.x - 5"
-          :y="a.y - 5"
-          :width="a.w + 10"
-          :height="a.h + 10"
+          :x="a.sentuh.x"
+          :y="a.sentuh.y"
+          :width="a.sentuh.w"
+          :height="a.sentuh.h"
           fill="transparent"
         />
         <rect
@@ -367,9 +402,27 @@ const areaTersusun = [
 
     <p class="mt-2 text-center text-xs text-brand-100/85" aria-live="polite">
       <template v-if="fokus">
-        {{ keterangan(fokus) }} — ketuk untuk mengisi
+        {{ keterangan(fokus) }}<template v-if="props.interaktif"> — ketuk untuk mengisi</template>
       </template>
-      <template v-else>Ketuk bagian tubuh yang terasa nyeri</template>
+      <template v-else-if="props.interaktif">
+        Ketuk bagian tubuh yang terasa nyeri
+      </template>
+      <template v-else>Warna menunjukkan tingkat keluhan yang Anda laporkan</template>
+    </p>
+
+    <!--
+      Aturan pengisian dinyatakan terbuka. Tanpa kalimat ini responden melihat
+      22 area "kosong" dan mengira kuesionernya belum lengkap — lalu membuka
+      satu per satu untuk menjawab "tidak pernah", yang menghasilkan data
+      persis sama dengan membiarkannya.
+    -->
+    <p
+      v-if="props.interaktif"
+      class="mt-2 text-center text-[11px] leading-relaxed text-brand-100/70"
+    >
+      Bagian yang tidak Anda tandai otomatis tercatat sebagai
+      <strong class="font-semibold">tidak ada keluhan</strong>. Tandai hanya yang
+      terasa nyeri.
     </p>
 
     <!-- Keterangan warna -->
@@ -378,8 +431,7 @@ const areaTersusun = [
     >
       <span
         v-for="k in [
-          { s: 'BELUM', t: 'Belum dijawab' },
-          { s: 'TIDAK_ADA', t: 'Tidak ada keluhan' },
+          { s: 'BELUM', t: 'Tidak ditandai — tidak ada keluhan' },
           { s: 'RENDAH', t: 'Ringan' },
           { s: 'SEDANG', t: 'Sedang' },
           { s: 'TINGGI', t: 'Berat' },

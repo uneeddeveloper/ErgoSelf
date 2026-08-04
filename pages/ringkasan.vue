@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import { nomorTahap } from '~~/lib/alur'
+import { belumAdaData } from '~~/lib/galat'
+
 /**
- * Langkah 6 alur responden — Ringkasan Riset / laporan akhir
+ * Langkah terakhir alur responden — Ringkasan Riset / laporan akhir
  * (mockup layar 07): skor CMDQ, skor SUS, dan rekomendasi ergonomi praktis.
  */
 definePageMeta({ middleware: 'responden' })
 useHead({ title: 'Ringkasan Riset — ErgoSelf' })
 
-const { data: laporan, pending, error } = await useFetch('/api/ringkasan')
+const { data: laporan, pending, error, refresh } = await useFetch('/api/ringkasan')
 
 const GAYA_RISIKO = {
   TINGGI: { warna: '#cf4436', lencana: 'bg-risiko-tinggi-bg text-risiko-tinggi-teks' },
@@ -24,7 +27,7 @@ function cetak() {
   <div class="space-y-4">
     <p v-if="pending" class="text-sm text-ink-500">Menyusun laporan…</p>
 
-    <div v-else-if="error" class="kartu space-y-3 p-6 text-center">
+    <div v-else-if="error && belumAdaData(error)" class="kartu space-y-3 p-6 text-center">
       <UiIkon nama="ringkasan" :ukuran="34" class="mx-auto text-brand-600" />
       <h1 class="text-lg font-extrabold text-ink">Ringkasan belum tersedia</h1>
       <p class="text-sm text-ink-600">
@@ -33,7 +36,26 @@ function cetak() {
       <UiTombol ke="/kuesioner">Isi Kuesioner Sekarang</UiTombol>
     </div>
 
+    <!-- Gagal memuat ≠ belum mengisi. Membedakannya mencegah responden mengira
+         jawabannya hilang lalu mengisi ulang seluruh kuesioner. -->
+    <div v-else-if="error" class="kartu space-y-3 p-6 text-center">
+      <UiIkon nama="peringatan" :ukuran="34" class="mx-auto text-aksen" />
+      <h1 class="text-lg font-extrabold text-ink">Gagal memuat laporan</h1>
+      <p class="text-sm text-ink-600">
+        Jawaban Anda tetap tersimpan. Periksa koneksi Anda lalu coba lagi.
+      </p>
+      <UiTombol type="button" @click="refresh()">Coba Lagi</UiTombol>
+    </div>
+
     <template v-else-if="laporan">
+      <!-- Tahap terakhir. Tanpa penanda ini responden yang melihat "Tahap 4
+           dari 4" di halaman penilaian mengira sudah selesai dan tidak pernah
+           membuka halaman ini — padahal inilah yang ia terima sebagai imbalan
+           atas partisipasinya. Disembunyikan saat dicetak. -->
+      <div class="print:hidden">
+        <UiProgres :tahap="nomorTahap('RINGKASAN')" keterangan="Kemajuan Pengisian" />
+      </div>
+
       <header>
         <p class="text-xs font-bold tracking-widest text-ink-500 uppercase">
           Final Report
@@ -105,9 +127,12 @@ function cetak() {
             TITIK KETIDAKNYAMANAN
           </p>
 
+          <!-- Laporan hanya membaca: tanpa `interaktif` peta ini menyisakan
+               28 perhentian tab yang tidak melakukan apa pun. -->
           <PetaTubuh
             v-if="laporan.cmdq.jumlahSegmenBermasalah > 0"
             :skor="laporan.cmdq.skorPerSegmen"
+            :interaktif="false"
           />
 
           <div class="text-center">

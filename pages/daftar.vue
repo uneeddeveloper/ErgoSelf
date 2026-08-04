@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nomorTahap } from '~~/lib/alur'
 import { PANJANG_SANDI_MIN, skemaDaftarAkun } from '~~/lib/validasi/akun'
 import { petaGalat } from '~~/lib/validasi/responden'
 
@@ -74,7 +75,7 @@ function kelasFor(field: string) {
 
 <template>
   <div class="mx-auto max-w-md space-y-4">
-    <UiProgres :tahap="1" :total-tahap="5" keterangan="Registrasi akun" />
+    <UiProgres :tahap="nomorTahap('DAFTAR')" keterangan="Registrasi akun" />
 
     <div class="kartu space-y-4 p-5">
       <div>

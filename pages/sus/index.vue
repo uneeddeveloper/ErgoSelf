@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { nomorTahap } from '~~/lib/alur'
+
 /**
  * Modul 4 — Kuesioner System Usability Scale (SUS).
  * Sepuluh pernyataan baku, skala Likert 1–5, sesuai mockup layar 05.
@@ -6,27 +8,42 @@
 definePageMeta({ middleware: 'responden' })
 useHead({ title: 'Penilaian Aplikasi (SUS) — ErgoSelf' })
 
+const jawaban = ref<Record<number, number>>({})
+const mengirim = ref(false)
+const galat = ref('')
+const galatItem = ref<number | null>(null)
+const terkirim = ref(false)
+
+// Dipulihkan sebelum data server diminta — lihat penjaga di pengamat bawah.
+const draf = useDrafJawaban('sus', jawaban)
+draf.pulihkan()
+draf.pantau()
+
 const { data: instrumen } = await useFetch('/api/sus/item')
 const { data: tersimpan } = await useFetch('/api/sus/saya', {
   server: false,
   onResponseError: () => {},
 })
 
-const jawaban = ref<Record<number, number>>({})
-const mengirim = ref(false)
-const galat = ref('')
-const galatItem = ref<number | null>(null)
-
 watch(
   tersimpan,
   (nilai) => {
     if (!nilai?.perItem) return
+    // Jangan menimpa jawaban yang sudah diisi responden di layar ini.
+    if (Object.keys(jawaban.value).length > 0) return
     const hasil: Record<number, number> = {}
     for (const i of nilai.perItem) hasil[i.nomor] = i.skorJawaban
     jawaban.value = hasil
   },
   { immediate: true },
 )
+
+onBeforeRouteLeave(() => {
+  if (terkirim.value || Object.keys(jawaban.value).length === 0) return true
+  return window.confirm(
+    'Penilaian Anda belum dikirim. Tinggalkan halaman ini? Jawaban tetap tersimpan di perangkat ini.',
+  )
+})
 
 const opsiSkala = computed(
   () =>
@@ -64,12 +81,15 @@ async function kirim() {
         })),
       },
     })
+    terkirim.value = true
+    draf.bersihkan()
     await navigateTo('/sus/hasil')
   } catch (error: any) {
-    galat.value =
+    const pesan =
       error?.data?.statusMessage ??
       error?.statusMessage ??
       'Gagal mengirim jawaban. Periksa koneksi Anda lalu coba lagi.'
+    galat.value = `${pesan} Jawaban Anda masih tersimpan di perangkat ini.`
     mengirim.value = false
   }
 }
@@ -77,16 +97,7 @@ async function kirim() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between text-[13px] font-bold">
-      <span class="text-brand-600">Tahap 4 dari 4</span>
-      <span class="font-semibold text-ink-700">Kuesioner SUS</span>
-    </div>
-    <div class="h-1.5 overflow-hidden rounded-full bg-garis">
-      <div
-        class="h-full rounded-full bg-brand-600 transition-[width] duration-300"
-        :style="{ width: `${(jumlahTerjawab / totalItem) * 100}%` }"
-      />
-    </div>
+    <UiProgres :tahap="nomorTahap('SUS')" keterangan="Kuesioner SUS" />
 
     <header>
       <h1 class="text-[22px] font-extrabold text-brand-600">
@@ -99,6 +110,18 @@ async function kirim() {
       </p>
     </header>
 
+    <!--
+      Sebagian item SUS bernada negatif dan dinilai terbalik. Bila responden
+      tidak menyadarinya, ia cenderung menjawab lurus ke bawah (straightlining)
+      — yang membalik separuh instrumen dan menghasilkan skor palsu di kisaran
+      60-an berapa pun usabilitas sebenarnya. Teks item TIDAK diubah karena
+      merupakan terjemahan tervalidasi; yang ditambah hanya penanda visual.
+    -->
+    <p class="rounded-input bg-panel-2 px-3.5 py-2.5 text-xs leading-relaxed text-ink-700">
+      Sebagian pernyataan sengaja bernada <strong>negatif</strong> dan ditandai
+      garis oranye. Mohon baca setiap kalimat sampai selesai sebelum memilih.
+    </p>
+
     <p class="text-xs text-ink-500" aria-live="polite">
       Terjawab <strong class="text-ink-700">{{ jumlahTerjawab }}</strong> dari
       {{ totalItem }} pernyataan
@@ -110,10 +133,16 @@ async function kirim() {
         :id="`item-${item.nomor}`"
         :key="item.nomor"
         class="kartu space-y-2.5 p-4 transition"
-        :class="galatItem === item.nomor ? 'border-risiko-tinggi bg-aksen-lembut/60' : ''"
+        :class="[
+          galatItem === item.nomor ? 'border-risiko-tinggi bg-aksen-lembut/60' : '',
+          item.nada === 'NEGATIF' ? 'border-l-4 border-l-aksen' : '',
+        ]"
       >
         <p class="text-sm leading-snug font-bold text-ink">
           {{ item.nomor }}. {{ item.pernyataan }}
+          <span v-if="item.nada === 'NEGATIF'" class="sr-only">
+            (pernyataan bernada negatif)
+          </span>
         </p>
 
         <UiPilihan
@@ -125,9 +154,9 @@ async function kirim() {
           @update:model-value="galatItem = null"
         />
 
-        <div
-          class="flex justify-between text-[10px] font-bold tracking-wide text-ink-400"
-        >
+        <!-- Angka pada skala hanya 1–5, jadi dua keterangan inilah yang
+             membawa seluruh maknanya. Ukurannya dinaikkan dari 10px. -->
+        <div class="flex justify-between text-xs font-bold tracking-wide text-ink-600">
           <span>SANGAT TIDAK SETUJU</span>
           <span>SANGAT SETUJU</span>
         </div>

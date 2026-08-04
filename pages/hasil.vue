@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { nomorTahap } from '~~/lib/alur'
+import { belumAdaData } from '~~/lib/galat'
 import { SKALA_FREKUENSI, SKALA_GANGGUAN, SKALA_KETIDAKNYAMANAN } from '~~/lib/cmdq/skala'
 
 /**
@@ -8,7 +10,7 @@ import { SKALA_FREKUENSI, SKALA_GANGGUAN, SKALA_KETIDAKNYAMANAN } from '~~/lib/c
 definePageMeta({ middleware: 'responden' })
 useHead({ title: 'Hasil Analisis Keluhan — ErgoSelf' })
 
-const { data: hasil, pending, error } = await useFetch('/api/cmdq/saya')
+const { data: hasil, pending, error, refresh } = await useFetch('/api/cmdq/saya')
 
 const GAYA_RISIKO = {
   TINGGI: {
@@ -58,7 +60,7 @@ function labelGangguan(nilai: number | null) {
 
     <!-- Belum mengisi -->
     <div
-      v-else-if="error"
+      v-else-if="error && belumAdaData(error)"
       class="kartu space-y-3 p-6 text-center"
     >
       <UiIkon nama="daftar" :ukuran="34" class="mx-auto text-brand-600" />
@@ -70,17 +72,27 @@ function labelGangguan(nilai: number | null) {
       <UiTombol ke="/kuesioner">Isi Kuesioner Sekarang</UiTombol>
     </div>
 
+    <!-- Gagal memuat — dibedakan agar responden tidak mengira jawabannya
+         hilang lalu mengisi ulang seluruh kuesioner. -->
+    <div v-else-if="error" class="kartu space-y-3 p-6 text-center">
+      <UiIkon nama="peringatan" :ukuran="34" class="mx-auto text-aksen" />
+      <h1 class="text-lg font-extrabold text-ink">Gagal memuat hasil</h1>
+      <p class="text-sm text-ink-600">
+        Jawaban Anda tetap tersimpan. Periksa koneksi Anda lalu coba lagi.
+      </p>
+      <UiTombol type="button" @click="refresh()">Coba Lagi</UiTombol>
+    </div>
+
     <template v-else-if="hasil">
       <div class="flex items-start justify-between gap-3">
         <h1 class="text-xl leading-tight font-extrabold text-brand-600">
           Hasil Analisis Keluhan (CMDQ)
         </h1>
-        <span class="shrink-0 text-right text-xs whitespace-nowrap text-ink-500">
-          Tahap 3<br />dari 4
-        </span>
       </div>
 
-      <UiProgres :tahap="3" keterangan="Kemajuan Pengisian" />
+      <!-- Nomor tahap hanya ditulis sekali, oleh UiProgres. Sebelumnya ada
+           teks tangan di atasnya yang menyebut angka berbeda. -->
+      <UiProgres :tahap="nomorTahap('KUESIONER')" keterangan="Kemajuan Pengisian" />
 
       <!-- Ringkasan skor total -->
       <section class="kartu flex flex-col items-center gap-3 p-5">

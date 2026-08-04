@@ -41,6 +41,55 @@ const emit = defineEmits<{
 
 const segmen = computed(() => cariSegmen(props.kodeSegmen))
 
+/**
+ * Manajemen fokus dialog.
+ *
+ * Panel ini sudah punya `role="dialog"` dan `aria-modal`, tetapi tanpa fokus
+ * awal pembaca layar tetap berada pada area peta di belakangnya — yang kini
+ * tertutup lapisan gelap. Pengguna TalkBack membuka panel lalu tidak menemukan
+ * isinya, dan setelah menutup harus menelusuri ulang puluhan area peta untuk
+ * mencapai bagian berikutnya. Diulang delapan kali, itu bukan ketidaknyamanan
+ * melainkan alasan berhenti mengisi.
+ */
+const judul = ref<HTMLElement | null>(null)
+const wadah = ref<HTMLElement | null>(null)
+
+/** Elemen yang membuka panel; fokus dikembalikan ke sana setelah ditutup. */
+let pemicu: HTMLElement | null = null
+
+onMounted(() => {
+  pemicu = document.activeElement as HTMLElement | null
+  judul.value?.focus()
+  document.body.style.overflow = 'hidden'
+})
+
+onBeforeUnmount(() => {
+  document.body.style.overflow = ''
+  pemicu?.focus?.()
+})
+
+const BISA_FOKUS =
+  'a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])'
+
+/** Menahan fokus di dalam dialog selama terbuka. */
+function jagaFokus(event: KeyboardEvent) {
+  if (event.key !== 'Tab' || !wadah.value) return
+
+  const isi = Array.from(wadah.value.querySelectorAll<HTMLElement>(BISA_FOKUS))
+  if (isi.length === 0) return
+
+  const awal = isi[0]!
+  const akhir = isi[isi.length - 1]!
+
+  if (event.shiftKey && document.activeElement === awal) {
+    event.preventDefault()
+    akhir.focus()
+  } else if (!event.shiftKey && document.activeElement === akhir) {
+    event.preventDefault()
+    awal.focus()
+  }
+}
+
 const frekuensi = ref<number | undefined>(props.awal?.frekuensiKode)
 const ketidaknyamanan = ref<number | undefined>(
   props.awal?.ketidaknyamananSkor ?? undefined,
@@ -116,6 +165,11 @@ function simpan() {
   })
 }
 
+function mintaHapus() {
+  const nama = segmen.value?.nama ?? 'bagian ini'
+  if (window.confirm(`Hapus jawaban untuk ${nama}?`)) emit('hapus')
+}
+
 function padaEscape(e: KeyboardEvent) {
   if (e.key === 'Escape') emit('tutup')
 }
@@ -131,8 +185,10 @@ onUnmounted(() => document.removeEventListener('keydown', padaEscape))
     aria-modal="true"
     :aria-label="`Pertanyaan untuk ${segmen?.nama}`"
     @click.self="emit('tutup')"
+    @keydown="jagaFokus"
   >
     <div
+      ref="wadah"
       class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-layar bg-white sm:rounded-layar"
     >
       <!-- Kepala -->
@@ -141,7 +197,11 @@ onUnmounted(() => document.removeEventListener('keydown', padaEscape))
       >
         <div class="min-w-0 flex-1">
           <p class="label-seksi">Bagian tubuh</p>
-          <h2 class="mt-0.5 text-lg font-extrabold text-ink">
+          <h2
+            ref="judul"
+            tabindex="-1"
+            class="mt-0.5 text-lg font-extrabold text-ink outline-none"
+          >
             {{ segmen?.nama }}
           </h2>
           <p v-if="segmen?.petunjuk" class="mt-1 text-xs text-ink-500">
@@ -224,16 +284,24 @@ onUnmounted(() => document.removeEventListener('keydown', padaEscape))
       </div>
 
       <!-- Tombol -->
-      <div class="sticky bottom-0 space-y-2 border-t border-garis bg-white px-5 py-4">
+      <div class="sticky bottom-0 border-t border-garis bg-white px-5 py-4">
         <UiTombol type="button" @click="simpan">Simpan Jawaban</UiTombol>
-        <UiTombol
-          v-if="props.awal"
-          varian="kedua"
-          type="button"
-          @click="emit('hapus')"
-        >
-          Hapus jawaban bagian ini
-        </UiTombol>
+
+        <!--
+          Aksi merusak sengaja dijauhkan dari tombol utama dan dibuat kecil.
+          Sebelumnya keduanya sama-sama selebar penuh dan hanya berjarak 8px di
+          bilah lengket tepat di bawah ibu jari — satu meleset menghapus sampai
+          tiga jawaban yang baru saja diisi.
+        -->
+        <div v-if="props.awal" class="mt-5 border-t border-garis pt-3 text-center">
+          <button
+            type="button"
+            class="touch-target rounded-input px-3 text-xs font-semibold text-ink-500 underline underline-offset-2 transition hover:text-risiko-tinggi focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:outline-none"
+            @click="mintaHapus"
+          >
+            Hapus jawaban bagian ini
+          </button>
+        </div>
       </div>
     </div>
   </div>

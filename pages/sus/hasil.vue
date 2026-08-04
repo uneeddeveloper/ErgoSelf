@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { nomorTahap } from '~~/lib/alur'
+import { belumAdaData } from '~~/lib/galat'
+
 /**
  * Hasil analisis usabilitas (SUS) — mengikuti mockup layar 06:
  * gauge setengah lingkaran, lencana akseptabilitas, dan perbandingan
@@ -7,7 +10,7 @@
 definePageMeta({ middleware: 'responden' })
 useHead({ title: 'Hasil Penilaian Aplikasi — ErgoSelf' })
 
-const { data: hasil, pending, error } = await useFetch('/api/sus/saya')
+const { data: hasil, pending, error, refresh } = await useFetch('/api/sus/saya')
 
 const GAYA = {
   ACCEPTABLE: { warna: '#1c4c3b', lencana: 'bg-brand-600 text-white', ikon: 'selesai' },
@@ -47,7 +50,7 @@ const rekomendasi = computed(() => {
   <div class="space-y-4">
     <p v-if="pending" class="text-sm text-ink-500">Memuat hasil…</p>
 
-    <div v-else-if="error" class="kartu space-y-3 p-6 text-center">
+    <div v-else-if="error && belumAdaData(error)" class="kartu space-y-3 p-6 text-center">
       <UiIkon nama="penilaian" :ukuran="34" class="mx-auto text-brand-600" />
       <h1 class="text-lg font-extrabold text-ink">Belum ada penilaian</h1>
       <p class="text-sm text-ink-600">
@@ -56,18 +59,23 @@ const rekomendasi = computed(() => {
       <UiTombol ke="/sus">Isi Penilaian Sekarang</UiTombol>
     </div>
 
+    <div v-else-if="error" class="kartu space-y-3 p-6 text-center">
+      <UiIkon nama="peringatan" :ukuran="34" class="mx-auto text-aksen" />
+      <h1 class="text-lg font-extrabold text-ink">Gagal memuat hasil</h1>
+      <p class="text-sm text-ink-600">
+        Jawaban Anda tetap tersimpan. Periksa koneksi Anda lalu coba lagi.
+      </p>
+      <UiTombol type="button" @click="refresh()">Coba Lagi</UiTombol>
+    </div>
+
     <template v-else-if="hasil">
       <div class="flex items-start justify-between gap-3">
         <h1 class="text-xl leading-tight font-extrabold text-brand-600">
           Hasil Analisis<br />Usabilitas (SUS)
         </h1>
-        <span
-          class="shrink-0 text-right text-xs font-bold whitespace-nowrap text-brand-600"
-        >
-          Langkah 4<br />dari 4
-        </span>
       </div>
-      <div class="h-1.5 rounded-full bg-brand-600" />
+
+      <UiProgres :tahap="nomorTahap('SUS')" keterangan="Kemajuan Pengisian" />
 
       <!-- Gauge skor -->
       <section class="kartu flex flex-col items-center gap-3 p-5">

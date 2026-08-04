@@ -19,6 +19,15 @@ const filter = reactive({
   kategoriImt: '',
   statusProfil: '',
   cari: '',
+  /**
+   * Responden demo (`DEMO-###` dari `prisma/contoh.ts`) dikecualikan secara
+   * bawaan agar data fiktif tidak pernah diam-diam masuk statistik, tabulasi
+   * silang, maupun berkas ekspor yang menjadi dataset tesis. Saklar ini ada
+   * supaya tampilan dasbor tetap bisa diuji tanpa responden sungguhan —
+   * dan supaya keikutsertaan data demo selalu merupakan pilihan sadar yang
+   * terlihat di layar.
+   */
+  sertakanContoh: '',
 })
 
 const halaman = ref(1)
@@ -81,8 +90,17 @@ const grafikRegio = computed(() => {
 
 // ── Ekspor ────────────────────────────────────────────────────────────────
 
+/**
+ * Berkas ekspor memuat KODE responden, bukan nama dan surel. Itu yang
+ * dijanjikan kepada responden pada lembar persetujuan, dan berkas ini
+ * berpindah ke luar kendali aplikasi begitu diunduh. Identitas hanya ikut bila
+ * peneliti memintanya secara sadar lewat tombol terpisah.
+ */
+const sertakanIdentitas = ref(false)
+
 function unduh(format: 'xlsx' | 'csv') {
   const q = new URLSearchParams({ ...kueri.value, format })
+  if (sertakanIdentitas.value) q.set('identitas', '1')
   window.location.href = `/api/admin/ekspor?${q}`
 }
 
@@ -94,6 +112,8 @@ function aturUlang() {
     kategoriImt: '',
     statusProfil: '',
     cari: '',
+    // Ikut dikembalikan ke keadaan aman: data contoh kembali dikecualikan.
+    sertakanContoh: '',
   })
 }
 
@@ -142,12 +162,64 @@ function progresPersen(r: {
         <button
           type="button"
           class="inline-flex min-h-11 items-center gap-2 rounded-input border border-garis-kuat bg-white px-4 text-[13px] font-bold text-ink-700 transition hover:bg-panel"
+          title="Hanya memuat lembar profil responden — tanpa skor 28 segmen, rincian tiga dimensi, dan jawaban item SUS"
           @click="unduh('csv')"
         >
-          ⇩ CSV
+          ⇩ CSV (profil saja)
         </button>
       </div>
     </div>
+
+    <!-- Catatan privasi ekspor -->
+    <div
+      class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-input border border-garis bg-panel-2 px-3.5 py-2.5 text-xs text-ink-700"
+    >
+      <label class="inline-flex cursor-pointer items-center gap-2">
+        <input
+          v-model="sertakanIdentitas"
+          type="checkbox"
+          class="size-4 accent-aksen"
+        />
+        <span class="font-semibold">Sertakan nama &amp; email dalam ekspor</span>
+      </label>
+      <span class="text-ink-500">
+        Bawaannya berkas hanya memuat kode responden. Aktifkan hanya bila
+        identitas benar-benar diperlukan — berkas hasil unduhan tidak lagi
+        dilindungi aplikasi ini, dan lembar persetujuan menjanjikan identitas
+        diganti kode anonim.
+      </span>
+
+      <label class="inline-flex w-full cursor-pointer items-center gap-2 border-t border-garis pt-2">
+        <input
+          type="checkbox"
+          class="size-4 accent-aksen"
+          :checked="filter.sertakanContoh === '1'"
+          @change="
+            filter.sertakanContoh = (
+              $event.target as HTMLInputElement
+            ).checked
+              ? '1'
+              : ''
+          "
+        />
+        <span class="font-semibold text-aksen-teks">
+          Tampilkan data contoh (DEMO-…)
+        </span>
+        <span class="text-ink-500">
+          Data fiktif untuk menguji tampilan. Jangan diaktifkan saat menyiapkan
+          berkas untuk analisis tesis.
+        </span>
+      </label>
+    </div>
+
+    <p
+      v-if="filter.sertakanContoh === '1'"
+      class="rounded-input bg-aksen-lembut px-3.5 py-2.5 text-xs font-semibold text-aksen-teks"
+      role="alert"
+    >
+      Data contoh sedang ikut dihitung. Seluruh angka, grafik, dan berkas
+      ekspor di halaman ini memuat responden fiktif.
+    </p>
 
     <!-- Filter -->
     <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

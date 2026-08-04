@@ -1,12 +1,20 @@
 <script setup lang="ts">
-/** Bilah kemajuan pengisian 4 tahap, sesuai mockup layar 03–06. */
+import { TOTAL_TAHAP } from '~~/lib/alur'
+
+/**
+ * Bilah kemajuan pengisian.
+ *
+ * Bawaan `totalTahap` mengambil dari `lib/alur.ts` supaya penyebutnya tidak
+ * bisa lagi berbeda antar halaman — sebelumnya nilai bawaannya 4 sementara
+ * beberapa halaman mengirim 5, sehingga bilahnya menyusut saat responden maju.
+ */
 const props = defineProps<{
   tahap: number
   totalTahap?: number
   keterangan?: string
 }>()
 
-const total = computed(() => props.totalTahap ?? 4)
+const total = computed(() => props.totalTahap ?? TOTAL_TAHAP)
 const persen = computed(() =>
   Math.min(100, Math.max(0, (props.tahap / total.value) * 100)),
 )

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { SEGMEN_TUBUH } from '~~/lib/cmdq/segmen'
+import { nomorTahap } from '~~/lib/alur'
+import { LABEL_REGIO, SEGMEN_TUBUH, type RegioTubuh } from '~~/lib/cmdq/segmen'
 import { SKOR_SEGMEN_MAKS } from '~~/lib/cmdq/skala'
 import { hitungSkorSegmen, kategorikanSkorSegmen } from '~~/lib/cmdq/skoring'
 
@@ -24,6 +25,13 @@ const jawaban = ref<Record<string, JawabanSegmen>>({})
 const segmenAktif = ref<string | null>(null)
 const mengirim = ref(false)
 const galatKirim = ref('')
+const terkirim = ref(false)
+
+// Draf lokal dipulihkan LEBIH DAHULU, sebelum data server diminta. Urutannya
+// penting — lihat pengamat `tersimpan` di bawah.
+const draf = useDrafJawaban('cmdq', jawaban)
+draf.pulihkan()
+draf.pantau()
 
 // Muat jawaban sebelumnya bila responden ingin mengoreksi.
 const { data: tersimpan } = await useFetch('/api/cmdq/saya', {
@@ -36,6 +44,14 @@ watch(
   tersimpan,
   (nilai) => {
     if (!nilai?.perSegmen) return
+
+    // JANGAN menimpa jawaban yang sudah ada di layar. Permintaan di atas tidak
+    // memblokir hidrasi, jadi halaman sudah bisa diketuk sebelum jawabannya
+    // tiba. Sebelum penjaga ini ada, responden yang menandai satu bagian dalam
+    // jeda tersebut kehilangan tandanya secara diam-diam — tertimpa keadaan
+    // server yang mungkin kosong.
+    if (Object.keys(jawaban.value).length > 0) return
+
     const hasil: Record<string, JawabanSegmen> = {}
     for (const s of nilai.perSegmen) {
       // Hanya segmen berkeluhan yang perlu tampil sebagai "sudah ditandai"
@@ -51,6 +67,16 @@ watch(
   },
   { immediate: true },
 )
+
+// Peringatan sebelum meninggalkan halaman. Navigasi bawah menampilkan empat
+// tautan lain tepat di bawah ibu jari sepanjang pengisian; tanpa penjaga ini
+// satu ketukan salah membuang seluruh jawaban.
+onBeforeRouteLeave(() => {
+  if (terkirim.value || Object.keys(jawaban.value).length === 0) return true
+  return window.confirm(
+    'Jawaban Anda belum dikirim. Tinggalkan halaman ini? Jawaban tetap tersimpan di perangkat ini.',
+  )
+})
 
 /** Skor tiap segmen untuk mewarnai peta tubuh. */
 const skorPerSegmen = computed(() => {
@@ -80,9 +106,30 @@ const daftarDitandai = computed(() =>
     .sort((a, b) => b.skor - a.skor || a.urutan - b.urutan),
 )
 
-const totalSementara = computed(() =>
-  daftarDitandai.value.reduce((jml, d) => jml + d.skor, 0),
-)
+/**
+ * Daftar seluruh 28 segmen, dikelompokkan per regio — jalur pilih alternatif.
+ *
+ * Peta tubuh bukan satu-satunya cara menandai keluhan, dan tidak boleh menjadi
+ * satu-satunya. Pada layar 360px area terkecil hanya sekitar 20×10 piksel;
+ * responden yang jarinya kurang presisi, memakai papan tik, atau memakai
+ * pembaca layar harus tetap bisa melaporkan keluhannya dengan andal.
+ */
+const daftarTerbuka = ref(false)
+
+const segmenPerRegio = computed(() => {
+  const urutan: RegioTubuh[] = [
+    'LEHER',
+    'BAHU',
+    'PUNGGUNG_PINGGANG',
+    'EKSTREMITAS_ATAS',
+    'EKSTREMITAS_BAWAH',
+  ]
+  return urutan.map((regio) => ({
+    regio,
+    label: LABEL_REGIO[regio],
+    segmen: SEGMEN_TUBUH.filter((s) => s.regio === regio),
+  }))
+})
 
 function gayaSkor(skor: number) {
   const k = kategorikanSkorSegmen(skor)
@@ -131,12 +178,17 @@ async function kirim() {
 
   try {
     await $fetch('/api/cmdq', { method: 'POST', body: { jawaban: isi } })
+    terkirim.value = true
+    draf.bersihkan()
     await navigateTo('/hasil')
   } catch (error: any) {
-    galatKirim.value =
+    const pesan =
       error?.data?.statusMessage ??
       error?.statusMessage ??
       'Gagal mengirim jawaban. Periksa koneksi Anda lalu coba lagi.'
+    // Menenangkan responden secara eksplisit: kegagalan kirim adalah momen
+    // paling mungkin ia mengira harus mengisi ulang dari nol.
+    galatKirim.value = `${pesan} Jawaban Anda masih tersimpan di perangkat ini.`
     mengirim.value = false
   }
 }
@@ -144,7 +196,7 @@ async function kirim() {
 
 <template>
   <div class="space-y-4">
-    <UiProgres :tahap="2" keterangan="Kemajuan Pengisian" />
+    <UiProgres :tahap="nomorTahap('KUESIONER')" keterangan="Kemajuan Pengisian" />
 
     <header class="text-center">
       <h1 class="text-[22px] font-extrabold text-ink">Peta Keluhan Tubuh</h1>
@@ -159,6 +211,74 @@ async function kirim() {
       :aktif="segmenAktif"
       @pilih="segmenAktif = $event"
     />
+
+    <!--
+      Jalur pilih alternatif. Area terkecil pada peta hanya sekitar 20×10 px di
+      layar 360 px, jadi peta tidak boleh menjadi satu-satunya cara menandai
+      keluhan. Daftar ini memakai tombol biasa sehingga andal untuk jari besar,
+      papan tik, maupun pembaca layar.
+    -->
+    <section class="rounded-kartu border border-garis bg-white">
+      <button
+        type="button"
+        class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        :aria-expanded="daftarTerbuka"
+        aria-controls="daftar-segmen"
+        @click="daftarTerbuka = !daftarTerbuka"
+      >
+        <span>
+          <span class="block text-sm font-bold text-ink">
+            Pilih dari daftar nama
+          </span>
+          <span class="block text-xs text-ink-600">
+            Lebih mudah daripada mengetuk gambar
+          </span>
+        </span>
+        <svg
+          class="size-5 shrink-0 text-brand-600 transition-transform duration-200"
+          :class="daftarTerbuka && 'rotate-180'"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M5 8l5 5 5-5" />
+        </svg>
+      </button>
+
+      <div v-show="daftarTerbuka" id="daftar-segmen" class="border-t border-garis p-3">
+        <div v-for="grup in segmenPerRegio" :key="grup.regio" class="mb-3 last:mb-0">
+          <h3 class="mb-1.5 text-[11px] font-bold tracking-wide text-ink-500 uppercase">
+            {{ grup.label }}
+          </h3>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button
+              v-for="s in grup.segmen"
+              :key="s.kode"
+              type="button"
+              class="touch-target rounded-input border px-2.5 py-2 text-left text-xs leading-tight transition"
+              :class="
+                skorPerSegmen[s.kode]
+                  ? 'border-aksen bg-aksen-lembut font-bold text-aksen-teks'
+                  : 'border-garis-kuat bg-isian text-ink-700 hover:border-brand-600'
+              "
+              @click="segmenAktif = s.kode"
+            >
+              {{ s.nama }}
+              <span v-if="s.petunjuk" class="mt-0.5 block text-[10px] font-normal text-ink-500">
+                {{ s.petunjuk }}
+              </span>
+              <span v-if="skorPerSegmen[s.kode]" class="mt-0.5 block text-[10px]">
+                skor {{ skorPerSegmen[s.kode] }}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- Daftar bagian yang sudah ditandai -->
     <section v-if="daftarDitandai.length === 0">
@@ -179,9 +299,14 @@ async function kirim() {
         <h2 class="text-sm font-bold text-ink">
           Bagian yang ditandai ({{ daftarDitandai.length }})
         </h2>
-        <span class="text-xs text-ink-500">
-          Skor sementara: <strong class="text-ink-700">{{ totalSementara }}</strong>
-        </span>
+        <!--
+          Skor total sengaja TIDAK ditampilkan selama pengisian. Angka risiko
+          yang terus naik di depan mata saat responden masih melaporkan
+          keluhannya sendiri adalah dorongan halus untuk menahan jawaban
+          berikutnya. Skor per bagian tetap tampil karena fungsinya berbeda:
+          memastikan ketukan tadi benar-benar tercatat.
+        -->
+        <span class="text-xs text-ink-500">dari {{ SEGMEN_TUBUH.length }} bagian</span>
       </div>
 
       <button

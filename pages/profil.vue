@@ -8,6 +8,7 @@ import {
   BATAS_DURASI_KOMPUTER,
   BATAS_FREKUENSI_OLAHRAGA,
 } from '~~/lib/validasi/responden'
+import { nomorTahap } from '~~/lib/alur'
 import { OPSI_YA_TIDAK } from '~~/types/ui'
 import type { OpsiPilihan } from '~~/types/ui'
 
@@ -143,7 +144,7 @@ function kelasFor(field: string) {
 
 <template>
   <div class="space-y-4">
-    <UiProgres :tahap="2" :total-tahap="5" keterangan="Profil pekerja" />
+    <UiProgres :tahap="nomorTahap('PROFIL')" keterangan="Profil pekerja" />
 
     <header class="rounded-kartu bg-brand-150 p-5">
       <h1 class="text-lg font-extrabold text-brand-800">

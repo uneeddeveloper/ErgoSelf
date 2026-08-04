@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="T extends string | number | boolean">
+import { KUNCI_LABEL_KOLOM } from '~~/types/ui'
 import type { OpsiPilihan } from '~~/types/ui'
 
 /**
@@ -17,16 +18,32 @@ const props = withDefaults(
     /** 'daftar' = satu opsi per baris · 'padat' = grid · 'angka' = kotak 1–5 */
     tata?: 'daftar' | 'padat' | 'angka'
     galat?: boolean
+    /**
+     * Id elemen yang menjadi nama grup ini bagi pembaca layar. Tanpa ini,
+     * `role="radiogroup"` diumumkan hanya sebagai "group" tanpa keterangan
+     * apa pun — pengguna mendengar lima pilihan tanpa tahu pertanyaannya.
+     */
+    labelledby?: string
   }>(),
   { tata: 'daftar' },
 )
 
 const emit = defineEmits<{ 'update:modelValue': [T] }>()
+
+/**
+ * Kaitan label dari `UiKolom` pembungkus, bila ada. Prop `labelledby` yang
+ * diberikan langsung tetap menang, untuk pemakaian di luar `UiKolom`.
+ */
+const kaitan = inject(KUNCI_LABEL_KOLOM, undefined)
+const idLabel = computed(() => props.labelledby ?? kaitan?.value.labelledby)
+const idPetunjuk = computed(() => kaitan?.value.describedby)
 </script>
 
 <template>
   <div
     role="radiogroup"
+    :aria-labelledby="idLabel"
+    :aria-describedby="idPetunjuk"
     class="grid gap-2"
     :class="{
       'grid-cols-1': props.tata === 'daftar',
@@ -37,7 +54,7 @@ const emit = defineEmits<{ 'update:modelValue': [T] }>()
     <label
       v-for="(o, i) in props.opsi"
       :key="`${String(o.nilai)}-${i}`"
-      class="cursor-pointer rounded-input border transition select-none"
+      class="cursor-pointer rounded-input border transition select-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-600 has-[:focus-visible]:ring-offset-2"
       :class="[
         props.tata === 'angka'
           ? 'flex touch-target items-center justify-center text-sm font-semibold'
@@ -49,6 +66,13 @@ const emit = defineEmits<{ 'update:modelValue': [T] }>()
             : 'border-garis-kuat bg-white hover:border-brand-600 hover:bg-brand-50',
       ]"
     >
+      <!--
+        Radio asli disembunyikan secara visual namun tetap menerima fokus.
+        Karena itu indikator fokusnya HARUS dipasang pada label pembungkus
+        lewat `has-[:focus-visible]` di atas — tanpa itu fokus papan tik tidak
+        terlihat sama sekali pada seluruh pertanyaan CMDQ dan 10 item SUS,
+        yaitu kontrol yang paling sering diulang di aplikasi ini.
+      -->
       <input
         type="radio"
         class="sr-only"

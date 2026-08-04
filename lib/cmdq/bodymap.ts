@@ -216,11 +216,110 @@ export const AREA_SEGMEN: readonly AreaSegmen[] = [
   { kode: 'KAKI_KIRI', tampak: 'DEPAN', x: 102, y: 288, w: 20, h: 14, rx: 6 },
 
   // ── Tampak belakang ─────────────────────────────────────────────────────
-  { kode: 'PUNGGUNG', tampak: 'BELAKANG', x: 279, y: 72, w: 42, h: 46, rx: 14 },
-  { kode: 'PINGGANG', tampak: 'BELAKANG', x: 281, y: 120, w: 38, h: 24, rx: 10 },
-  { kode: 'BOKONG', tampak: 'BELAKANG', x: 278, y: 146, w: 44, h: 20, rx: 9 },
-  { kode: 'PANTAT', tampak: 'BELAKANG', x: 281, y: 168, w: 38, h: 16, rx: 8 },
+  //
+  // Empat segmen ini berhimpitan secara vertikal dan merupakan segmen dengan
+  // prevalensi keluhan tertinggi pada kerja duduk. Jaraknya sengaja dilebarkan
+  // menjadi 4 unit (dari sebelumnya 2) supaya area sentuh masing-masing bisa
+  // diberi bantalan tanpa saling menindih — lihat `AREA_SENTUH` di bawah.
+  // Lebarnya juga ditambah karena ruang mendatar di sisi figur masih longgar.
+  { kode: 'PUNGGUNG', tampak: 'BELAKANG', x: 276, y: 66, w: 48, h: 46, rx: 14 },
+  { kode: 'PINGGANG', tampak: 'BELAKANG', x: 279, y: 116, w: 42, h: 26, rx: 11 },
+  { kode: 'BOKONG', tampak: 'BELAKANG', x: 277, y: 146, w: 46, h: 22, rx: 10 },
+  { kode: 'PANTAT', tampak: 'BELAKANG', x: 279, y: 172, w: 42, h: 18, rx: 9 },
 ] as const
+
+// ── Area sentuh ────────────────────────────────────────────────────────────
+//
+// Rect yang terlihat sengaja dibuat lebih kecil daripada jari. Karena itu tiap
+// area diberi bantalan tak terlihat supaya lebih mudah dikenai.
+//
+// Bantalan itu TIDAK BOLEH saling menindih. Sebelumnya semua area diberi
+// bantalan tetap ±5 unit, sehingga bantalan PANTAT (y163–189) menutupi rect
+// PANTAT yang terlihat maupun sebagian rect BOKONG (y146–166). Karena elemen
+// yang dirender belakangan menang dan rect ber-`fill="transparent"` tetap
+// menangkap pointer, ketukan di y163–166 — yang jelas terlihat sebagai BOKONG —
+// tercatat sebagai PANTAT. Salah-penetapan itu SISTEMATIS SEARAH, tepat pada
+// empat segmen yang paling menentukan hasil penelitian.
+//
+// Solusinya: bantalan dihitung per sisi sebagai setengah jarak ke tetangga
+// terdekat pada sumbu tersebut, dibatasi maksimum. Dengan begitu dua area
+// bersebelahan paling banter bersinggungan di tepi, tidak pernah menindih.
+
+/** Bantalan maksimum di satu sisi (unit viewBox). */
+const PAD_SENTUH_MAKS = 9
+
+export interface AreaSentuh extends AreaSegmen {
+  /** Rect penangkap sentuhan; dijamin tidak beririsan dengan area lain. */
+  sentuh: { x: number; y: number; w: number; h: number }
+}
+
+function hitungAreaSentuh(daftar: readonly AreaSegmen[]): AreaSentuh[] {
+  return daftar.map((a) => {
+    const aKiri = a.x
+    const aKanan = a.x + a.w
+    const aAtas = a.y
+    const aBawah = a.y + a.h
+
+    let atas = PAD_SENTUH_MAKS
+    let bawah = PAD_SENTUH_MAKS
+    let kiri = PAD_SENTUH_MAKS
+    let kanan = PAD_SENTUH_MAKS
+
+    for (const b of daftar) {
+      if (b.kode === a.kode) continue
+      const bKiri = b.x
+      const bKanan = b.x + b.w
+      const bAtas = b.y
+      const bBawah = b.y + b.h
+
+      // Jarak antar rect pada tiap sumbu; 0 berarti rentangnya beririsan.
+      const jarakX =
+        bKiri >= aKanan ? bKiri - aKanan : aKiri >= bKanan ? aKiri - bKanan : 0
+      const jarakY =
+        bAtas >= aBawah ? bAtas - aBawah : aAtas >= bBawah ? aAtas - bBawah : 0
+
+      const batasiX = () => {
+        if (bKiri >= aKanan) kanan = Math.min(kanan, jarakX / 2)
+        else kiri = Math.min(kiri, jarakX / 2)
+      }
+      const batasiY = () => {
+        if (bAtas >= aBawah) bawah = Math.min(bawah, jarakY / 2)
+        else atas = Math.min(atas, jarakY / 2)
+      }
+
+      // Cukup menjaga pemisahan pada SATU sumbu saja agar dua rect tidak
+      // beririsan. Untuk pasangan diagonal (terpisah di kedua sumbu) dipilih
+      // sumbu berjarak lebih lebar, supaya bantalan yang dikorbankan minimal.
+      if (jarakX > 0 && jarakY > 0) {
+        if (jarakX >= jarakY) batasiX()
+        else batasiY()
+      } else if (jarakX > 0) {
+        batasiX()
+      } else if (jarakY > 0) {
+        batasiY()
+      } else {
+        // Rect yang terlihat sudah beririsan — tidak boleh terjadi, dan
+        // dijaga oleh pengujian. Tanpa bantalan, minimal tidak diperparah.
+        kiri = 0
+        kanan = 0
+        atas = 0
+        bawah = 0
+      }
+    }
+
+    return {
+      ...a,
+      sentuh: {
+        x: a.x - kiri,
+        y: a.y - atas,
+        w: a.w + kiri + kanan,
+        h: a.h + atas + bawah,
+      },
+    }
+  })
+}
+
+export const AREA_SENTUH: readonly AreaSentuh[] = hitungAreaSentuh(AREA_SEGMEN)
 
 /** Label judul tiap tampak, ditampilkan di atas figur. */
 export const JUDUL_TAMPAK: Record<Tampak, { label: string; x: number }> = {
