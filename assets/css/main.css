@@ -2,54 +2,71 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Token desain ErgoSelf
-   Diambil dari mockup Figma/Claude Design "ErgoSelf — App Screens"
-   (8 layar: registrasi, profil, body map, hasil CMDQ, SUS, hasil SUS,
-   ringkasan, admin dashboard).
+   Tema "klinik sage": latar hijau sage, layar krem, kartu hijau hutan pekat,
+   dan aksen koral untuk ajakan bertindak. Sudut membulat besar, bayangan
+   lembut, tipografi tebal.
+
+   Dipakai di 8 layar: registrasi, profil, body map, hasil CMDQ, SUS,
+   hasil SUS, ringkasan, admin dashboard.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @theme {
-  /* — Warna utama: teal — */
-  --color-brand-50: #f3fdfb;
-  --color-brand-100: #dcf7f1;
-  --color-brand-150: #e3ece8; /* panel teal lembut */
-  --color-brand-200: #d7e9e4; /* latar lencana risiko rendah */
-  --color-brand-300: #b7cdc5; /* garis putus-putus */
-  --color-brand-400: #2dd4bf; /* aksen gradien logo */
-  --color-brand-600: #0d9488; /* PRIMER — tombol, judul, ikon */
-  --color-brand-700: #0f766e;
-  --color-brand-800: #115e59;
+  /* — Warna utama: hijau hutan — */
+  --color-brand-50: #f2f7f4;
+  --color-brand-100: #e2efe7;
+  --color-brand-150: #d5e7dc; /* panel hijau lembut */
+  --color-brand-200: #c2dccd; /* latar lencana risiko rendah */
+  --color-brand-300: #9dc0ac; /* SAGE — latar halaman */
+  --color-brand-400: #63a183; /* aksen gradien logo */
+  --color-brand-500: #2f6b52;
+  --color-brand-600: #1c4c3b; /* PRIMER — tombol, judul, kartu gelap */
+  --color-brand-700: #163d2f;
+  --color-brand-800: #0f2d23;
 
-  /* — Netral — */
-  --color-ink: #1a1a1a; /* judul */
-  --color-ink-700: #374151; /* teks utama */
-  --color-ink-600: #4b5563; /* teks sekunder */
-  --color-ink-500: #6b7280; /* teks redup */
-  --color-ink-400: #9ca3af; /* placeholder */
-  --color-garis: #e5e7eb; /* garis kartu */
-  --color-garis-kuat: #d1d5db; /* garis input */
-  --color-panel: #eceeee; /* panel netral / navigasi bawah */
-  --color-panel-2: #f3f4f4;
-  --color-isian: #fafafa; /* latar input */
+  /* — Aksen koral: tombol sorot, lencana penting — */
+  --color-aksen: #f4623a;
+  --color-aksen-kuat: #dd4d26;
+  --color-aksen-lembut: #ffe3d9;
+  --color-aksen-teks: #8f2f16;
+
+  /* — Aksen limau: penanda kecil (mis. status "selesai") — */
+  --color-sorot: #cdf05a;
+  --color-sorot-teks: #35450d;
+
+  /* — Netral kehijauan — */
+  --color-ink: #10201a; /* judul */
+  --color-ink-700: #33443c; /* teks utama */
+  --color-ink-600: #4c5d55; /* teks sekunder */
+  --color-ink-500: #6b7c74; /* teks redup */
+  --color-ink-400: #97a69e; /* placeholder */
+  --color-garis: #e2e9e3; /* garis kartu */
+  --color-garis-kuat: #ccd8d0; /* garis input */
+  --color-panel: #e9efe9; /* panel netral */
+  --color-panel-2: #f2f6f1;
+  --color-isian: #f4f8f3; /* latar input */
+  --color-layar: #f0f4ee; /* "layar" krem tempat isi halaman */
 
   /* — Semantik risiko — */
-  --color-risiko-tinggi: #dc2626;
-  --color-risiko-tinggi-bg: #fecaca;
-  --color-risiko-tinggi-teks: #991b1b;
-  --color-risiko-sedang: #b45309;
-  --color-risiko-sedang-bg: #fde8cc;
-  --color-risiko-rendah: #0d9488;
-  --color-risiko-rendah-bg: #d7e9e4;
-  --color-info: #1d4ed8;
-  --color-info-bg: #dbeafe;
+  --color-risiko-tinggi: #cf4436;
+  --color-risiko-tinggi-bg: #ffdcd5;
+  --color-risiko-tinggi-teks: #8f2418;
+  --color-risiko-sedang: #a8680f;
+  --color-risiko-sedang-bg: #fbe8c8;
+  --color-risiko-rendah: #1c4c3b;
+  --color-risiko-rendah-bg: #c2dccd;
+  --color-info: #2b5f7d;
+  --color-info-bg: #d9e9f1;
 
-  /* — Radius — */
-  --radius-input: 10px;
-  --radius-kartu: 14px;
-  --radius-panel: 16px;
-  --radius-layar: 24px;
+  /* — Radius: jauh lebih membulat dari tema lama — */
+  --radius-input: 14px;
+  --radius-kartu: 22px;
+  --radius-panel: 26px;
+  --radius-layar: 32px;
 
   /* — Bayangan — */
-  --shadow-layar: 0 12px 32px rgb(0 0 0 / 0.12);
+  --shadow-kartu: 0 6px 18px rgb(16 32 26 / 0.05);
+  --shadow-layar: 0 18px 44px rgb(16 32 26 / 0.14);
+  --shadow-timbul: 0 10px 24px rgb(16 32 26 / 0.16);
 }
 
 html {
@@ -58,7 +75,7 @@ html {
 
 body {
   @apply text-ink-700 antialiased;
-  background: linear-gradient(160deg, #e7fbf6, #eef1ef 40%) fixed;
+  background: linear-gradient(170deg, #9dc0ac, #b3ccbd 55%, #9dc0ac) fixed;
   min-height: 100vh;
 }
 
@@ -67,16 +84,42 @@ body {
   min-height: 44px;
 }
 
-/* ── Komponen berulang dari mockup ───────────────────────────────────────── */
+/* ── Komponen berulang ────────────────────────────────────────────────────── */
 
-/* Kartu putih standar: white / border tipis / radius 14 */
+/* "Layar": panel krem membulat besar tempat seluruh isi halaman berada,
+   meniru bodi ponsel yang mengambang di atas latar sage. */
+@utility layar {
+  background: var(--color-layar);
+  border-radius: var(--radius-layar);
+  box-shadow: var(--shadow-layar);
+}
+
+/* Kartu terang standar */
 @utility kartu {
   background: #fff;
   border: 1px solid var(--color-garis);
   border-radius: var(--radius-kartu);
+  box-shadow: var(--shadow-kartu);
 }
 
-/* Judul kelompok: 12px, tebal, huruf besar, teal */
+/* Kartu bergradien hijau lembut — dipakai untuk daftar bertahap dan panel
+   informasi yang perlu terasa hangat tanpa mengalahkan tombol aksi. */
+@utility kartu-lembut {
+  background: linear-gradient(135deg, #e4efe8 0%, #f6faf5 52%, #ecf4ee 100%);
+  border: 1px solid rgb(28 76 59 / 0.09);
+  border-radius: var(--radius-kartu);
+  box-shadow: var(--shadow-kartu);
+}
+
+/* Kartu hijau pekat untuk sorotan utama (kartu profil, ringkasan skor) */
+@utility kartu-gelap {
+  background: linear-gradient(150deg, var(--color-brand-500), var(--color-brand-700));
+  border-radius: var(--radius-kartu);
+  color: #fff;
+  box-shadow: var(--shadow-timbul);
+}
+
+/* Judul kelompok: 12px, tebal, huruf besar */
 @utility label-seksi {
   font-size: 0.75rem;
   font-weight: 700;
@@ -85,33 +128,58 @@ body {
   color: var(--color-brand-600);
 }
 
-/* Tombol utama: pil teal penuh */
+/* Tombol utama: pil hijau hutan penuh */
 @utility tombol-utama {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 48px;
-  padding: 0 1.25rem;
+  min-height: 50px;
+  padding: 0 1.375rem;
   border-radius: 999px;
   background: var(--color-brand-600);
   color: #fff;
   font-size: 0.9375rem;
   font-weight: 700;
-  transition: background-color 0.15s;
+  box-shadow: var(--shadow-kartu);
+  transition:
+    background-color 0.15s,
+    transform 0.15s;
 }
 @utility tombol-utama-hover {
   background: var(--color-brand-700);
 }
 
-/* Tombol sekunder: pil bergaris teal */
+/* Tombol aksen: pil koral — dipakai untuk satu ajakan terpenting per layar */
+@utility tombol-aksen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 50px;
+  padding: 0 1.375rem;
+  border-radius: 999px;
+  background: var(--color-aksen);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgb(244 98 58 / 0.28);
+  transition:
+    background-color 0.15s,
+    transform 0.15s;
+}
+@utility tombol-aksen-hover {
+  background: var(--color-aksen-kuat);
+}
+
+/* Tombol sekunder: pil bergaris hijau */
 @utility tombol-kedua {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 46px;
-  padding: 0 1.25rem;
+  min-height: 48px;
+  padding: 0 1.375rem;
   border-radius: 999px;
   border: 1.5px solid var(--color-brand-600);
   color: var(--color-brand-600);
@@ -121,11 +189,11 @@ body {
   transition: background-color 0.15s;
 }
 
-/* Kolom isian: abu muda, radius 10 */
+/* Kolom isian */
 @utility isian {
   width: 100%;
-  min-height: 44px;
-  padding: 0.6875rem 0.875rem;
+  min-height: 46px;
+  padding: 0.6875rem 1rem;
   border: 1px solid var(--color-garis-kuat);
   border-radius: var(--radius-input);
   background: var(--color-isian);
@@ -138,12 +206,12 @@ body {
 }
 @utility isian-fokus {
   border-color: var(--color-brand-600);
-  box-shadow: 0 0 0 3px rgb(13 148 136 / 0.15);
+  box-shadow: 0 0 0 3px rgb(28 76 59 / 0.14);
   background: #fff;
 }
 @utility isian-galat {
   border-color: var(--color-risiko-tinggi);
-  background: #fef2f2;
+  background: #fff5f3;
 }
 
 /* Lencana pil kecil */
@@ -151,7 +219,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.25rem 0.75rem;
+  padding: 0.3125rem 0.8125rem;
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 700;

@@ -10,16 +10,16 @@ useHead({ title: 'Hasil Penilaian Aplikasi — ErgoSelf' })
 const { data: hasil, pending, error } = await useFetch('/api/sus/saya')
 
 const GAYA = {
-  ACCEPTABLE: { warna: '#0d9488', lencana: 'bg-brand-600 text-white', ikon: '✓' },
+  ACCEPTABLE: { warna: '#1c4c3b', lencana: 'bg-brand-600 text-white', ikon: 'selesai' },
   MARGINAL: {
-    warna: '#b45309',
+    warna: '#a8680f',
     lencana: 'bg-risiko-sedang-bg text-risiko-sedang',
-    ikon: '⚠',
+    ikon: 'peringatan',
   },
   NOT_ACCEPTABLE: {
-    warna: '#dc2626',
+    warna: '#cf4436',
     lencana: 'bg-risiko-tinggi-bg text-risiko-tinggi-teks',
-    ikon: '⚠',
+    ikon: 'peringatan',
   },
 } as const
 
@@ -48,7 +48,7 @@ const rekomendasi = computed(() => {
     <p v-if="pending" class="text-sm text-ink-500">Memuat hasil…</p>
 
     <div v-else-if="error" class="kartu space-y-3 p-6 text-center">
-      <p class="text-3xl" aria-hidden="true">📝</p>
+      <UiIkon nama="penilaian" :ukuran="34" class="mx-auto text-brand-600" />
       <h1 class="text-lg font-extrabold text-ink">Belum ada penilaian</h1>
       <p class="text-sm text-ink-600">
         Anda belum mengisi kuesioner penilaian aplikasi.
@@ -75,7 +75,7 @@ const rekomendasi = computed(() => {
           class="relative h-[100px] w-[190px]"
           :style="{
             borderRadius: '190px 190px 0 0',
-            background: `conic-gradient(from 270deg at 50% 100%, ${GAYA[hasil.interpretasi as Kunci].warna} 0deg, ${GAYA[hasil.interpretasi as Kunci].warna} ${sudut}deg, #e5e7eb ${sudut}deg, #e5e7eb 180deg)`,
+            background: `conic-gradient(from 270deg at 50% 100%, ${GAYA[hasil.interpretasi as Kunci].warna} 0deg, ${GAYA[hasil.interpretasi as Kunci].warna} ${sudut}deg, #dbe4dd ${sudut}deg, #dbe4dd 180deg)`,
           }"
           role="img"
           :aria-label="`Skor SUS ${hasil.skorTotal} dari 100`"
@@ -91,7 +91,7 @@ const rekomendasi = computed(() => {
         </div>
 
         <span class="lencana" :class="GAYA[hasil.interpretasi as Kunci].lencana">
-          {{ GAYA[hasil.interpretasi as Kunci].ikon }}
+          <UiIkon :nama="GAYA[hasil.interpretasi as Kunci].ikon" :ukuran="15" />
           {{ hasil.labelInterpretasi.toUpperCase() }}
         </span>
 
@@ -155,7 +155,7 @@ const rekomendasi = computed(() => {
 
       <section class="space-y-2.5 rounded-kartu bg-panel-2 p-4">
         <h2 class="flex items-center gap-1.5 text-sm font-bold text-brand-600">
-          😊 Grade Penilaian
+          <UiIkon nama="puas" :ukuran="17" /> Grade Penilaian
         </h2>
         <p class="text-[13px] leading-relaxed text-ink-700">
           Berdasarkan skala penentuan grade, skor ini termasuk
@@ -166,13 +166,15 @@ const rekomendasi = computed(() => {
 
       <section class="space-y-2.5 rounded-kartu bg-panel-2 p-4">
         <h2 class="flex items-center gap-1.5 text-sm font-bold text-brand-600">
-          📈 Rekomendasi
+          <UiIkon nama="hasil" :ukuran="17" /> Rekomendasi
         </h2>
         <p class="text-[13px] leading-relaxed text-ink-700">{{ rekomendasi }}</p>
       </section>
 
       <div class="space-y-2 pt-1">
-        <UiTombol ke="/ringkasan">Lihat Ringkasan Riset 📄</UiTombol>
+        <UiTombol varian="aksen" ke="/ringkasan">
+          Lihat Ringkasan Riset <UiIkon nama="ringkasan" :ukuran="18" />
+        </UiTombol>
         <UiTombol varian="kedua" ke="/sus">Ubah Jawaban Penilaian</UiTombol>
       </div>
     </template>

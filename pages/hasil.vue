@@ -12,22 +12,22 @@ const { data: hasil, pending, error } = await useFetch('/api/cmdq/saya')
 
 const GAYA_RISIKO = {
   TINGGI: {
-    warna: '#dc2626',
+    warna: '#cf4436',
     lencana: 'bg-risiko-tinggi-bg text-risiko-tinggi-teks',
     teks: 'text-risiko-tinggi',
-    ikon: '⚠',
+    ikon: 'peringatan',
   },
   SEDANG: {
-    warna: '#b45309',
+    warna: '#a8680f',
     lencana: 'bg-risiko-sedang-bg text-risiko-sedang',
     teks: 'text-risiko-sedang',
-    ikon: '⚠',
+    ikon: 'peringatan',
   },
   RENDAH: {
-    warna: '#0d9488',
+    warna: '#1c4c3b',
     lencana: 'bg-risiko-rendah-bg text-risiko-rendah',
     teks: 'text-risiko-rendah',
-    ikon: '✓',
+    ikon: 'selesai',
   },
 } as const
 
@@ -61,7 +61,7 @@ function labelGangguan(nilai: number | null) {
       v-else-if="error"
       class="kartu space-y-3 p-6 text-center"
     >
-      <p class="text-3xl" aria-hidden="true">📋</p>
+      <UiIkon nama="daftar" :ukuran="34" class="mx-auto text-brand-600" />
       <h1 class="text-lg font-extrabold text-ink">Belum ada hasil</h1>
       <p class="text-sm text-ink-600">
         Anda belum mengisi kuesioner keluhan tubuh. Isi terlebih dahulu untuk
@@ -100,7 +100,7 @@ function labelGangguan(nilai: number | null) {
           class="lencana"
           :class="GAYA_RISIKO[hasil.kategoriRisiko as Kunci].lencana"
         >
-          {{ GAYA_RISIKO[hasil.kategoriRisiko as Kunci].ikon }}
+          <UiIkon :nama="GAYA_RISIKO[hasil.kategoriRisiko as Kunci].ikon" :ukuran="15" />
           {{ hasil.labelKategoriRisiko.toUpperCase() }}
         </span>
 
@@ -201,8 +201,10 @@ function labelGangguan(nilai: number | null) {
       </p>
 
       <div class="space-y-2 pt-1">
-        <UiTombol ke="/sus">Lanjut ke Kuesioner Penilaian Aplikasi →</UiTombol>
-        <UiTombol varian="kedua" ke="/kuesioner">🗺 Ubah Jawaban Peta Tubuh</UiTombol>
+        <UiTombol varian="aksen" ke="/sus">Lanjut ke Kuesioner Penilaian Aplikasi →</UiTombol>
+        <UiTombol varian="kedua" ke="/kuesioner">
+          <UiIkon nama="peta-tubuh" :ukuran="18" /> Ubah Jawaban Peta Tubuh
+        </UiTombol>
       </div>
     </template>
   </div>

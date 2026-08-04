@@ -171,7 +171,7 @@ function kelasFor(field: string) {
     <form class="space-y-4" novalidate @submit.prevent="kirim">
       <!-- Informasi pribadi -->
       <fieldset class="kartu space-y-4 p-4">
-        <legend class="label-seksi float-none">👤 Informasi Pribadi</legend>
+        <legend class="label-seksi float-none flex items-center gap-1.5"><UiIkon nama="profil" :ukuran="16" /> Informasi Pribadi</legend>
 
         <UiKolom
           label="Usia (tahun)"
@@ -229,7 +229,7 @@ function kelasFor(field: string) {
 
       <!-- Informasi pekerjaan -->
       <fieldset class="kartu space-y-4 p-4">
-        <legend class="label-seksi float-none">💼 Informasi Pekerjaan</legend>
+        <legend class="label-seksi float-none flex items-center gap-1.5"><UiIkon nama="pekerjaan" :ukuran="16" /> Informasi Pekerjaan</legend>
 
         <UiKolom
           label="Masa kerja (tahun)"
@@ -272,7 +272,7 @@ function kelasFor(field: string) {
 
       <!-- Statistik fisik -->
       <fieldset class="kartu space-y-4 p-4">
-        <legend class="label-seksi float-none">📏 Statistik Fisik</legend>
+        <legend class="label-seksi float-none flex items-center gap-1.5"><UiIkon nama="statistik-fisik" :ukuran="16" /> Statistik Fisik</legend>
 
         <div class="grid gap-4 sm:grid-cols-2">
           <UiKolom
@@ -332,7 +332,7 @@ function kelasFor(field: string) {
 
       <!-- Kebiasaan hidup -->
       <fieldset class="kartu space-y-5 p-4">
-        <legend class="label-seksi float-none">🧘 Kebiasaan Hidup</legend>
+        <legend class="label-seksi float-none flex items-center gap-1.5"><UiIkon nama="kebiasaan" :ukuran="16" /> Kebiasaan Hidup</legend>
 
         <UiKolom
           label="Apakah Anda rutin berolahraga?"
@@ -391,7 +391,7 @@ function kelasFor(field: string) {
 
       <!-- Riwayat medis -->
       <fieldset class="kartu space-y-5 p-4">
-        <legend class="label-seksi float-none">💊 Riwayat Medis</legend>
+        <legend class="label-seksi float-none flex items-center gap-1.5"><UiIkon nama="medis" :ukuran="16" /> Riwayat Medis</legend>
 
         <UiKolom
           label="Pernah mengalami gangguan otot/rangka sebelumnya?"
@@ -431,7 +431,7 @@ function kelasFor(field: string) {
       </fieldset>
 
       <div class="space-y-2 pt-1">
-        <UiTombol type="submit" :disabled="mengirim">
+        <UiTombol varian="aksen" type="submit" :disabled="mengirim">
           {{ mengirim ? 'Menyimpan…' : 'Mulai Kuesioner →' }}
         </UiTombol>
       </div>

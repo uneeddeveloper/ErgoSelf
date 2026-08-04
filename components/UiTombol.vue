@@ -1,11 +1,12 @@
 <script setup lang="ts">
 /**
- * Tombol pil sesuai mockup: varian `utama` (teal penuh) dan `kedua`
- * (garis teal). Otomatis menjadi <NuxtLink> bila diberi prop `ke`.
+ * Tombol pil sesuai tema: `utama` (hijau hutan penuh), `aksen` (koral, untuk
+ * satu ajakan terpenting per layar) dan `kedua` (garis hijau).
+ * Otomatis menjadi <NuxtLink> bila diberi prop `ke`.
  */
 const props = withDefaults(
   defineProps<{
-    varian?: 'utama' | 'kedua'
+    varian?: 'utama' | 'aksen' | 'kedua'
     ke?: string
     type?: 'button' | 'submit'
     disabled?: boolean
@@ -17,7 +18,9 @@ const props = withDefaults(
 const kelas = computed(() => [
   props.varian === 'utama'
     ? 'tombol-utama hover:bg-brand-700'
-    : 'tombol-kedua hover:bg-brand-50',
+    : props.varian === 'aksen'
+      ? 'tombol-aksen hover:bg-aksen-kuat'
+      : 'tombol-kedua hover:bg-brand-50',
   props.penuh ? 'w-full' : '',
   props.disabled ? 'cursor-not-allowed opacity-60' : '',
 ])

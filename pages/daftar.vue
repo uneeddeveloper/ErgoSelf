@@ -188,7 +188,7 @@ function kelasFor(field: string) {
             class="flex cursor-pointer items-start gap-2.5 rounded-input border p-3 transition"
             :class="
               galat.setujuEtik
-                ? 'border-risiko-tinggi bg-red-50'
+                ? 'border-risiko-tinggi bg-aksen-lembut/60'
                 : form.setujuEtik
                   ? 'border-brand-600 bg-brand-50'
                   : 'border-garis-kuat bg-white hover:bg-brand-50'
@@ -212,13 +212,13 @@ function kelasFor(field: string) {
             class="mt-1.5 flex items-start gap-1 text-xs font-semibold text-risiko-tinggi"
             role="alert"
           >
-            <span aria-hidden="true">⚠</span>
+            <UiIkon nama="peringatan" :ukuran="15" />
             <span>{{ galat.setujuEtik }}</span>
           </p>
         </div>
 
-        <UiTombol type="submit" :disabled="mengirim">
-          {{ mengirim ? 'Mendaftarkan…' : 'Daftar Sekarang ✓' }}
+        <UiTombol varian="aksen" type="submit" :disabled="mengirim">
+          {{ mengirim ? 'Mendaftarkan…' : 'Daftar Sekarang' }}
         </UiTombol>
       </form>
 
@@ -232,11 +232,15 @@ function kelasFor(field: string) {
 
     <div class="flex flex-wrap justify-center gap-2.5">
       <span
-        v-for="t in ['🔒 Data Terenkripsi', '✅ Standar Etik Penelitian']"
-        :key="t"
-        class="rounded-full border border-garis-kuat bg-white px-3.5 py-2 text-xs text-ink-700"
+        v-for="t in [
+          { ikon: 'terkunci', teks: 'Data Terenkripsi' },
+          { ikon: 'registrasi', teks: 'Standar Etik Penelitian' },
+        ] as const"
+        :key="t.teks"
+        class="inline-flex items-center gap-1.5 rounded-full border border-garis-kuat bg-white px-3.5 py-2 text-xs text-ink-700"
       >
-        {{ t }}
+        <UiIkon :nama="t.ikon" :ukuran="15" class="text-brand-600" />
+        {{ t.teks }}
       </span>
     </div>
   </div>

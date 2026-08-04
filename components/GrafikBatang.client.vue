@@ -60,7 +60,7 @@ const opsi = computed(() => ({
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: '#1a1a1a',
+      backgroundColor: '#10201a',
       padding: 10,
       cornerRadius: 8,
       titleFont: { size: 12, weight: 700 as const },

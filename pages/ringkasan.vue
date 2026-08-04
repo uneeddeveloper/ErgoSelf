@@ -9,9 +9,9 @@ useHead({ title: 'Ringkasan Riset — ErgoSelf' })
 const { data: laporan, pending, error } = await useFetch('/api/ringkasan')
 
 const GAYA_RISIKO = {
-  TINGGI: { warna: '#dc2626', lencana: 'bg-risiko-tinggi-bg text-risiko-tinggi-teks' },
-  SEDANG: { warna: '#b45309', lencana: 'bg-risiko-sedang-bg text-risiko-sedang' },
-  RENDAH: { warna: '#0d9488', lencana: 'bg-risiko-rendah-bg text-risiko-rendah' },
+  TINGGI: { warna: '#cf4436', lencana: 'bg-risiko-tinggi-bg text-risiko-tinggi-teks' },
+  SEDANG: { warna: '#a8680f', lencana: 'bg-risiko-sedang-bg text-risiko-sedang' },
+  RENDAH: { warna: '#1c4c3b', lencana: 'bg-risiko-rendah-bg text-risiko-rendah' },
 } as const
 type Kunci = keyof typeof GAYA_RISIKO
 
@@ -25,7 +25,7 @@ function cetak() {
     <p v-if="pending" class="text-sm text-ink-500">Menyusun laporan…</p>
 
     <div v-else-if="error" class="kartu space-y-3 p-6 text-center">
-      <p class="text-3xl" aria-hidden="true">📄</p>
+      <UiIkon nama="ringkasan" :ukuran="34" class="mx-auto text-brand-600" />
       <h1 class="text-lg font-extrabold text-ink">Ringkasan belum tersedia</h1>
       <p class="text-sm text-ink-600">
         Selesaikan dulu kuesioner keluhan tubuh untuk mendapatkan laporan akhir.
@@ -52,7 +52,7 @@ function cetak() {
         v-if="!laporan.lengkap"
         class="rounded-input bg-risiko-sedang-bg px-4 py-3 text-[13px] font-semibold text-risiko-sedang"
       >
-        ⌛ Kuesioner penilaian aplikasi (SUS) belum diisi — laporan ini masih
+        <UiIkon nama="menunggu" :ukuran="15" /> Kuesioner penilaian aplikasi (SUS) belum diisi — laporan ini masih
         sebagian.
       </div>
 
@@ -93,7 +93,7 @@ function cetak() {
               :style="{ color: GAYA_RISIKO[laporan.cmdq.kategoriRisiko as Kunci].warna }"
               aria-hidden="true"
             >
-              ✓
+              <UiIkon nama="centang" :ukuran="15" />
             </span>
             {{ s }}
           </li>
@@ -155,7 +155,7 @@ function cetak() {
               : 'bg-risiko-sedang-bg text-risiko-sedang'
           "
         >
-          {{ laporan.sus.memenuhiTarget ? '✓' : '⚠' }} Grade
+          <UiIkon :nama="laporan.sus.memenuhiTarget ? 'centang' : 'peringatan'" :ukuran="15" /> Grade
           {{ laporan.sus.gradeHuruf }} / {{ laporan.sus.adjektif }}
         </span>
 
@@ -190,13 +190,13 @@ function cetak() {
         class="block rounded-kartu border border-brand-300 bg-brand-150 p-4 text-center"
       >
         <p class="text-sm font-bold text-brand-800">
-          📝 Lengkapi Penilaian Aplikasi (SUS) →
+          <UiIkon nama="penilaian" :ukuran="17" /> Lengkapi Penilaian Aplikasi (SUS) →
         </p>
       </NuxtLink>
 
       <!-- ── Rekomendasi ───────────────────────────────────────────────── -->
       <h2 class="flex items-center gap-2 pt-1 text-base font-extrabold text-ink">
-        💡 Rekomendasi Ergonomi &amp; Langkah Selanjutnya
+        <UiIkon nama="saran" :ukuran="17" /> Rekomendasi Ergonomi &amp; Langkah Selanjutnya
       </h2>
 
       <article
@@ -211,7 +211,9 @@ function cetak() {
       </article>
 
       <div class="space-y-2 pt-1 print:hidden">
-        <UiTombol type="button" @click="cetak">🖨 Simpan / Cetak sebagai PDF</UiTombol>
+        <UiTombol type="button" @click="cetak">
+          <UiIkon nama="cetak" :ukuran="18" /> Simpan / Cetak sebagai PDF
+        </UiTombol>
         <UiTombol varian="kedua" ke="/beranda">Selesai</UiTombol>
       </div>
 

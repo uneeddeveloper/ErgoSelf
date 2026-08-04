@@ -49,7 +49,7 @@ const butir = [
       @click="terbuka = !terbuka"
     >
       <span class="text-[13px] font-bold text-ink-700">
-        📄 Baca lembar persetujuan penelitian
+        <UiIkon nama="dokumen" :ukuran="17" /> Baca lembar persetujuan penelitian
       </span>
       <span class="shrink-0 text-ink-500" aria-hidden="true">
         {{ terbuka ? '▲' : '▼' }}

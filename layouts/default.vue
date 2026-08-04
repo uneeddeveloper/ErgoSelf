@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
- * Kerangka tampilan responden — mengikuti mockup layar mobile 360px:
- * bilah atas putih dengan judul teal, isi di atas latar gradien, dan
- * navigasi bawah 4 tab yang muncul hanya setelah responden masuk.
+ * Kerangka tampilan responden — tema "klinik sage":
+ * latar hijau sage, bilah atas berbentuk pil mengambang, isi halaman di
+ * dalam panel krem membulat besar (seperti bodi ponsel), dan navigasi bawah
+ * berupa pil hijau pekat yang muncul hanya setelah responden masuk.
  */
 const { loggedIn, user, clear } = useUserSession()
 const route = useRoute()
@@ -12,12 +13,12 @@ const adalahResponden = computed(
 )
 
 const tab = [
-  { ke: '/beranda', label: 'Beranda', ikon: '🏠' },
-  { ke: '/kuesioner', label: 'Peta Tubuh', ikon: '🗺' },
-  { ke: '/hasil', label: 'Hasil', ikon: '📈' },
-  { ke: '/sus', label: 'Penilaian', ikon: '📝' },
-  { ke: '/ringkasan', label: 'Ringkasan', ikon: '📄' },
-]
+  { ke: '/beranda', label: 'Beranda', ikon: 'beranda' },
+  { ke: '/kuesioner', label: 'Peta Tubuh', ikon: 'peta-tubuh' },
+  { ke: '/hasil', label: 'Hasil', ikon: 'hasil' },
+  { ke: '/sus', label: 'Penilaian', ikon: 'penilaian' },
+  { ke: '/ringkasan', label: 'Ringkasan', ikon: 'ringkasan' },
+] as const
 
 function tabAktif(ke: string) {
   return route.path === ke || route.path.startsWith(`${ke}/`)
@@ -31,9 +32,11 @@ async function keluar() {
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col">
-    <header class="sticky top-0 z-30 border-b border-garis bg-white/95 backdrop-blur">
-      <div class="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3.5">
+  <div class="flex min-h-screen flex-col px-3 pt-3 sm:px-5 sm:pt-5">
+    <header class="sticky top-3 z-30 mx-auto w-full max-w-2xl sm:top-5">
+      <div
+        class="flex items-center gap-3 rounded-full bg-white/85 py-2 pr-2 pl-3.5 shadow-(--shadow-kartu) backdrop-blur"
+      >
         <NuxtLink to="/" class="flex items-center gap-2.5">
           <UiLogo :ukuran="30" />
           <span class="text-[17px] leading-none font-extrabold text-brand-600">
@@ -51,7 +54,7 @@ async function keluar() {
             </span>
             <button
               type="button"
-              class="touch-target rounded-input px-3 text-[13px] font-semibold text-ink-500 hover:bg-panel"
+              class="touch-target rounded-full px-4 text-[13px] font-semibold text-ink-600 hover:bg-panel"
               @click="keluar"
             >
               Keluar
@@ -60,7 +63,7 @@ async function keluar() {
           <NuxtLink
             v-else
             to="/masuk"
-            class="touch-target flex items-center rounded-input px-3 text-[13px] font-semibold text-brand-600 hover:bg-brand-50"
+            class="touch-target flex items-center rounded-full bg-brand-600 px-5 text-[13px] font-bold text-white hover:bg-brand-700"
           >
             Masuk
           </NuxtLink>
@@ -68,48 +71,50 @@ async function keluar() {
       </div>
     </header>
 
-    <main
-      class="mx-auto w-full max-w-2xl flex-1 px-4 py-6"
-      :class="adalahResponden ? 'pb-28' : 'pb-10'"
-    >
-      <slot />
+    <main class="mx-auto mt-4 w-full max-w-2xl flex-1">
+      <div class="layar px-4 py-6 sm:px-6">
+        <slot />
+      </div>
     </main>
 
-    <!-- Navigasi bawah — hanya untuk responden yang sedang mengisi -->
+    <!-- Navigasi bawah — pil mengambang, hanya untuk responden yang mengisi -->
     <nav
       v-if="adalahResponden"
-      class="fixed inset-x-0 bottom-0 z-30 border-t border-garis bg-panel"
+      class="sticky bottom-3 z-30 mx-auto mt-4 w-full max-w-lg sm:bottom-5"
       aria-label="Navigasi utama"
     >
-      <div class="mx-auto flex max-w-2xl justify-around">
+      <div
+        class="flex justify-between gap-0.5 rounded-full bg-brand-700/95 p-1.5 shadow-(--shadow-timbul) backdrop-blur"
+      >
         <NuxtLink
           v-for="t in tab"
           :key="t.ke"
           :to="t.ke"
-          class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-center text-[10px] transition sm:text-[11px]"
+          class="flex flex-1 flex-col items-center gap-0.5 rounded-full px-1 py-2 text-center text-[10px] transition"
           :class="
             tabAktif(t.ke)
-              ? 'font-bold text-brand-600'
-              : 'text-ink-500 hover:text-ink-700'
+              ? 'bg-white font-bold text-brand-700'
+              : 'text-brand-100/80 hover:bg-white/10'
           "
         >
-          <span class="text-base leading-none" aria-hidden="true">{{ t.ikon }}</span>
+          <UiIkon :nama="t.ikon" :ukuran="20" />
           <span>{{ t.label }}</span>
         </NuxtLink>
       </div>
     </nav>
 
-    <footer v-if="!adalahResponden" class="border-t border-garis bg-white">
-      <div class="mx-auto max-w-2xl px-4 py-5 text-[11px] leading-relaxed text-ink-500">
-        <p class="font-semibold text-ink-600">
+    <footer class="mx-auto w-full max-w-2xl px-2 py-6">
+      <p
+        v-if="!adalahResponden"
+        class="text-[11px] leading-relaxed text-brand-800/75"
+      >
+        <span class="font-bold text-brand-800">
           Instrumen penelitian tesis — Magister Terapan Keselamatan dan Kesehatan
-          Kerja, Universitas Gadjah Mada
-        </p>
-        <p class="mt-1">
-          Data yang Anda isi digunakan semata-mata untuk keperluan penelitian dan
-          dijaga kerahasiaannya.
-        </p>
-      </div>
+          Kerja, Universitas Gadjah Mada.
+        </span>
+        Data yang Anda isi digunakan semata-mata untuk keperluan penelitian dan
+        dijaga kerahasiaannya.
+      </p>
     </footer>
   </div>
 </template>

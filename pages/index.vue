@@ -5,45 +5,42 @@ useHead({ title: 'ErgoSelf — Pengukuran Mandiri Keluhan MSDs' })
 
 const langkah = [
   {
-    ikon: '🔐',
+    ikon: 'registrasi',
     judul: 'Daftar Akun',
     isi: 'Buat akun dengan email dan kata sandi, disertai lembar persetujuan penelitian.',
   },
   {
-    ikon: '👤',
+    ikon: 'profil',
     judul: 'Profil Pekerja',
     isi: 'Isi data diri, pekerjaan, tinggi & berat badan. Indeks Massa Tubuh dihitung otomatis.',
   },
   {
-    ikon: '🗺',
+    ikon: 'peta-tubuh',
     judul: 'Peta Tubuh',
     isi: 'Tandai bagian tubuh yang terasa nyeri, lalu jawab 3 pertanyaan singkat untuk tiap bagian.',
   },
   {
-    ikon: '📝',
+    ikon: 'penilaian',
     judul: 'Penilaian Aplikasi',
     isi: 'Sepuluh pernyataan singkat untuk menilai kemudahan penggunaan aplikasi ini.',
   },
   {
-    ikon: '📄',
+    ikon: 'ringkasan',
     judul: 'Ringkasan Riset',
     isi: 'Laporan akhir berisi skor risiko, area prioritas, dan rekomendasi ergonomi praktis.',
   },
-]
+] as const
 </script>
 
 <template>
   <div class="space-y-6">
-    <section class="kartu overflow-hidden">
-      <div
-        class="p-6"
-        style="background: linear-gradient(165deg, #dcf7f1, #f3fdfb)"
-      >
-        <p class="label-seksi">Instrumen Penelitian</p>
-        <h1 class="mt-2 text-2xl leading-tight font-extrabold text-ink">
+    <section class="kartu-gelap overflow-hidden">
+      <div class="p-6 sm:p-7">
+        <p class="label-seksi text-sorot">Instrumen Penelitian</p>
+        <h1 class="mt-2 text-2xl leading-tight font-extrabold">
           Pengukuran Mandiri Keluhan Otot &amp; Rangka pada Pengguna Komputer
         </h1>
-        <p class="mt-3 text-sm leading-relaxed text-ink-600">
+        <p class="mt-3 text-sm leading-relaxed text-brand-100/90">
           Kuesioner ini membantu Anda menilai sendiri keluhan pada otot dan rangka
           tubuh yang mungkin timbul akibat bekerja dengan komputer. Pengisian
           memakan waktu sekitar <strong>10–15 menit</strong> dan dapat dilakukan
@@ -51,7 +48,7 @@ const langkah = [
         </p>
 
         <div class="mt-6 space-y-2">
-          <UiTombol :ke="loggedIn ? '/beranda' : '/daftar'">
+          <UiTombol varian="aksen" :ke="loggedIn ? '/beranda' : '/daftar'">
             {{ loggedIn ? 'Lanjutkan Pengisian' : 'Mulai — Daftar Akun' }}
           </UiTombol>
           <UiTombol v-if="!loggedIn" varian="kedua" ke="/masuk">
@@ -62,14 +59,19 @@ const langkah = [
     </section>
 
     <section class="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      <article v-for="(l, i) in langkah" :key="l.judul" class="kartu p-4">
+      <article v-for="(l, i) in langkah" :key="l.judul" class="kartu-lembut p-4">
         <div class="flex items-center gap-2">
           <span
-            class="grid h-7 w-7 place-items-center rounded-full bg-brand-100 text-xs font-extrabold text-brand-700"
+            class="grid h-9 w-9 place-items-center rounded-xl bg-white/80 text-brand-700 ring-1 ring-brand-600/12"
+          >
+            <UiIkon :nama="l.ikon" />
+          </span>
+          <span
+            class="grid h-6 w-6 place-items-center rounded-full bg-brand-600 text-[11px] font-extrabold text-white"
+            aria-hidden="true"
           >
             {{ i + 1 }}
           </span>
-          <span class="text-base" aria-hidden="true">{{ l.ikon }}</span>
         </div>
         <h2 class="mt-2.5 text-sm font-bold text-ink">{{ l.judul }}</h2>
         <p class="mt-1 text-[13px] leading-relaxed text-ink-600">{{ l.isi }}</p>

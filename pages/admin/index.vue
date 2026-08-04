@@ -129,7 +129,7 @@ function progresPersen(r: {
     <!-- Kepala + ekspor -->
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="flex items-center gap-2 text-[19px] font-extrabold text-ink">
-        <span aria-hidden="true">🔎</span> Filter Deskriptif (Bab IV)
+        <UiIkon nama="cari" :ukuran="17" /> Filter Deskriptif (Bab IV)
       </h1>
       <div class="flex gap-2">
         <button
@@ -226,7 +226,7 @@ function progresPersen(r: {
 
     <!-- Kartu ringkasan -->
     <section class="grid gap-4 sm:grid-cols-3">
-      <article class="rounded-r-input bg-white p-4" style="border-left: 4px solid #0d9488">
+      <article class="rounded-r-input bg-white p-4" style="border-left: 4px solid #1c4c3b">
         <p :class="kelasLabelFilter">Total Responden</p>
         <p class="mt-0.5 text-3xl font-extrabold text-ink">
           {{ statistik?.jumlahResponden ?? 0 }}
@@ -238,7 +238,7 @@ function progresPersen(r: {
         </p>
       </article>
 
-      <article class="rounded-r-input bg-white p-4" style="border-left: 4px solid #374151">
+      <article class="rounded-r-input bg-white p-4" style="border-left: 4px solid #33443c">
         <div class="flex items-start justify-between gap-2">
           <p :class="kelasLabelFilter">Skor SUS (rata-rata)</p>
           <span
@@ -267,7 +267,7 @@ function progresPersen(r: {
         </p>
       </article>
 
-      <article class="rounded-r-input bg-white p-4" style="border-left: 4px solid #ca8a04">
+      <article class="rounded-r-input bg-white p-4" style="border-left: 4px solid #a8680f">
         <p :class="kelasLabelFilter">Skor CMDQ (rata-rata)</p>
         <p class="mt-0.5 text-3xl font-extrabold text-ink">
           {{ statistik?.cmdq?.skorRataRata ?? '—' }}
@@ -410,7 +410,11 @@ function progresPersen(r: {
               </td>
               <td class="py-3.5">
                 <span class="lencana" :class="gayaStatus[b.statusCmdq]">
-                  {{ b.statusCmdq === 'SELESAI' ? '✓ Selesai' : '⌛ Belum' }}
+                  <UiIkon
+                    :nama="b.statusCmdq === 'SELESAI' ? 'centang' : 'menunggu'"
+                    :ukuran="14"
+                  />
+                  {{ b.statusCmdq === 'SELESAI' ? 'Selesai' : 'Belum' }}
                 </span>
                 <span v-if="b.cmdq" class="mt-1 block text-xs text-ink-500">
                   Skor {{ b.cmdq.skorTotal }} · {{ b.cmdq.labelKategoriRisiko }}
@@ -418,7 +422,11 @@ function progresPersen(r: {
               </td>
               <td class="py-3.5">
                 <span class="lencana" :class="gayaStatus[b.statusSus]">
-                  {{ b.statusSus === 'SELESAI' ? '✓ Selesai' : '⌛ Belum' }}
+                  <UiIkon
+                    :nama="b.statusSus === 'SELESAI' ? 'centang' : 'menunggu'"
+                    :ukuran="14"
+                  />
+                  {{ b.statusSus === 'SELESAI' ? 'Selesai' : 'Belum' }}
                 </span>
                 <span v-if="b.sus" class="mt-1 block text-xs text-ink-500">
                   Skor {{ b.sus.skorTotal }} · Grade {{ b.sus.gradeHuruf }}

@@ -20,7 +20,7 @@ const langkah = computed(() => {
   return [
     {
       no: 1,
-      ikon: '🔐',
+      ikon: 'registrasi',
       judul: 'Registrasi & Persetujuan',
       keterangan: 'Akun dibuat, persetujuan etik terekam',
       status: 'SELESAI' as const,
@@ -29,7 +29,7 @@ const langkah = computed(() => {
     },
     {
       no: 2,
-      ikon: '👤',
+      ikon: 'profil',
       judul: 'Profil Pekerja',
       keterangan: 'Demografi, pekerjaan, tinggi & berat badan',
       status: p.statusProfil,
@@ -38,7 +38,7 @@ const langkah = computed(() => {
     },
     {
       no: 3,
-      ikon: '🗺',
+      ikon: 'peta-tubuh',
       judul: 'Kuesioner CMDQ',
       keterangan: 'Peta tubuh 28 bagian + frekuensi & intensitas',
       status: p.statusCmdq,
@@ -47,7 +47,7 @@ const langkah = computed(() => {
     },
     {
       no: 4,
-      ikon: '📝',
+      ikon: 'penilaian',
       judul: 'Penilaian Aplikasi (SUS)',
       keterangan: '10 pernyataan singkat',
       status: p.statusSus,
@@ -56,7 +56,7 @@ const langkah = computed(() => {
     },
     {
       no: 5,
-      ikon: '📄',
+      ikon: 'ringkasan',
       judul: 'Ringkasan Riset',
       keterangan: 'Laporan akhir + rekomendasi ergonomi',
       status: (p.statusCmdq === 'SELESAI' ? 'SELESAI' : 'BELUM') as const,
@@ -67,12 +67,21 @@ const langkah = computed(() => {
 })
 
 const gayaStatus = {
-  SELESAI: { kelas: 'bg-brand-150 text-brand-800', label: '✓ Selesai' },
+  SELESAI: {
+    kelas: 'bg-brand-600 text-white',
+    label: 'Selesai',
+    ikon: 'selesai',
+  },
   BERLANGSUNG: {
     kelas: 'bg-risiko-sedang-bg text-risiko-sedang',
-    label: '⌛ Belum selesai',
+    label: 'Belum selesai',
+    ikon: 'menunggu',
   },
-  BELUM: { kelas: 'bg-panel text-ink-600', label: 'Belum diisi' },
+  BELUM: {
+    kelas: 'bg-white/80 text-ink-600 ring-1 ring-garis-kuat',
+    label: 'Belum diisi',
+    ikon: 'menunggu',
+  },
 } as const
 
 /** Langkah berikutnya yang perlu dikerjakan responden. */
@@ -104,10 +113,13 @@ const tahapSekarang = computed(() => {
     <template v-else-if="profil">
       <!-- Sapaan + identitas -->
       <header class="kartu overflow-hidden">
-        <div class="p-5" style="background: linear-gradient(165deg, #dcf7f1, #f3fdfb)">
-          <p class="text-xs text-ink-500">Selamat datang,</p>
-          <h1 class="mt-0.5 text-xl font-extrabold text-ink">{{ profil.nama }}</h1>
-          <p class="mt-1 font-mono text-sm font-bold text-brand-600">
+        <div
+          class="p-5 text-white"
+          style="background: linear-gradient(150deg, #2f6b52, #163d2f)"
+        >
+          <p class="text-xs text-brand-100/80">Selamat datang,</p>
+          <h1 class="mt-0.5 text-xl font-extrabold">{{ profil.nama }}</h1>
+          <p class="mt-1 font-mono text-sm font-bold text-sorot">
             {{ profil.kodeResponden }}
           </p>
         </div>
@@ -152,11 +164,13 @@ const tahapSekarang = computed(() => {
       <NuxtLink
         v-if="berikutnya?.tautan"
         :to="berikutnya.tautan"
-        class="block rounded-kartu bg-brand-600 p-4 text-white transition hover:bg-brand-700"
+        class="block rounded-kartu bg-aksen p-4 text-white shadow-(--shadow-timbul) transition hover:bg-aksen-kuat"
       >
-        <p class="text-xs opacity-80">Langkah berikutnya</p>
-        <p class="mt-0.5 text-base font-extrabold">
-          {{ berikutnya.ikon }} {{ berikutnya.judul }} →
+        <p class="text-xs opacity-85">Langkah berikutnya</p>
+        <p class="mt-0.5 flex items-center gap-2 text-base font-extrabold">
+          <UiIkon :nama="berikutnya.ikon" :ukuran="22" />
+          {{ berikutnya.judul }}
+          <span class="ml-auto" aria-hidden="true">→</span>
         </p>
       </NuxtLink>
 
@@ -167,27 +181,40 @@ const tahapSekarang = computed(() => {
         <div
           v-for="l in langkah"
           :key="l.no"
-          class="kartu flex flex-wrap items-center gap-3 p-4"
-          :class="l.terkunci ? 'opacity-55' : ''"
+          class="kartu-lembut flex flex-wrap items-center gap-x-3 gap-y-2.5 p-4"
+          :class="l.terkunci ? 'opacity-60' : ''"
         >
-          <span
-            class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-extrabold"
-            :class="
-              l.status === 'SELESAI'
-                ? 'bg-brand-600 text-white'
-                : 'bg-panel text-ink-500'
-            "
-            aria-hidden="true"
-          >
-            {{ l.status === 'SELESAI' ? '✓' : l.no }}
+          <!-- Lencana ikon: nomor langkah tetap terbaca lewat tanda centang
+               atau angka di pojoknya, jadi urutan tidak hilang. -->
+          <span class="relative shrink-0">
+            <span
+              class="grid h-12 w-12 place-items-center rounded-2xl transition"
+              :class="
+                l.status === 'SELESAI'
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-white/80 text-brand-700 ring-1 ring-brand-600/12'
+              "
+            >
+              <UiIkon :nama="l.ikon" :ukuran="24" />
+            </span>
+            <span
+              class="absolute -top-1.5 -right-1.5 grid h-5 w-5 place-items-center rounded-full bg-white text-[10px] font-extrabold text-brand-700 shadow-(--shadow-kartu) ring-1 ring-brand-600/12"
+              aria-hidden="true"
+            >
+              <UiIkon v-if="l.status === 'SELESAI'" nama="centang" :ukuran="12" />
+              <template v-else>{{ l.no }}</template>
+            </span>
           </span>
 
           <div class="min-w-0 flex-1">
-            <p class="text-sm font-bold text-ink">{{ l.ikon }} {{ l.judul }}</p>
-            <p class="text-xs text-ink-500">{{ l.keterangan }}</p>
+            <p class="text-sm font-bold text-ink">{{ l.judul }}</p>
+            <p class="mt-0.5 text-xs leading-relaxed text-ink-500">
+              {{ l.keterangan }}
+            </p>
           </div>
 
           <span class="lencana" :class="gayaStatus[l.status].kelas">
+            <UiIkon :nama="gayaStatus[l.status].ikon" :ukuran="14" />
             {{ gayaStatus[l.status].label }}
           </span>
 
@@ -197,7 +224,7 @@ const tahapSekarang = computed(() => {
             class="inline-flex min-h-11 shrink-0 items-center rounded-full px-4 text-[13px] font-bold transition"
             :class="
               l.status === 'SELESAI'
-                ? 'border border-garis-kuat text-ink-700 hover:bg-panel'
+                ? 'bg-white/80 text-brand-700 ring-1 ring-garis-kuat hover:bg-white'
                 : 'bg-brand-600 text-white hover:bg-brand-700'
             "
           >
@@ -206,10 +233,10 @@ const tahapSekarang = computed(() => {
 
           <span
             v-else-if="l.terkunci"
-            class="shrink-0 text-xs text-ink-400"
-            aria-label="Terkunci"
+            class="inline-flex shrink-0 items-center gap-1.5 text-xs text-ink-400"
           >
-            🔒 Selesaikan langkah sebelumnya
+            <UiIkon nama="terkunci" :ukuran="14" />
+            Selesaikan langkah sebelumnya
           </span>
         </div>
       </section>
@@ -219,20 +246,24 @@ const tahapSekarang = computed(() => {
         <NuxtLink
           v-if="profil.statusCmdq === 'SELESAI'"
           to="/hasil"
-          class="block rounded-kartu border border-brand-300 bg-brand-150 p-4 transition hover:bg-brand-200"
+          class="kartu-lembut block p-4 transition hover:brightness-[0.98]"
         >
-          <p class="text-sm font-bold text-brand-800">
-            📈 Hasil Keluhan Tubuh (CMDQ) →
+          <p class="flex items-center gap-2 text-sm font-bold text-brand-800">
+            <UiIkon nama="hasil" />
+            Hasil Keluhan Tubuh (CMDQ)
+            <span class="ml-auto" aria-hidden="true">→</span>
           </p>
         </NuxtLink>
 
         <NuxtLink
           v-if="profil.statusSus === 'SELESAI'"
           to="/sus/hasil"
-          class="block rounded-kartu border border-brand-300 bg-brand-150 p-4 transition hover:bg-brand-200"
+          class="kartu-lembut block p-4 transition hover:brightness-[0.98]"
         >
-          <p class="text-sm font-bold text-brand-800">
-            ✅ Hasil Penilaian Aplikasi (SUS) →
+          <p class="flex items-center gap-2 text-sm font-bold text-brand-800">
+            <UiIkon nama="selesai" />
+            Hasil Penilaian Aplikasi (SUS)
+            <span class="ml-auto" aria-hidden="true">→</span>
           </p>
         </NuxtLink>
       </div>

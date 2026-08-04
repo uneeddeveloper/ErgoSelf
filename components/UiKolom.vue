@@ -27,7 +27,7 @@ defineProps<{
       class="mt-1.5 flex items-start gap-1 text-xs font-semibold text-risiko-tinggi"
       role="alert"
     >
-      <span aria-hidden="true">⚠</span>
+      <UiIkon nama="peringatan" :ukuran="15" />
       <span>{{ galat }}</span>
     </p>
   </div>

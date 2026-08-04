@@ -110,7 +110,7 @@ async function kirim() {
         :id="`item-${item.nomor}`"
         :key="item.nomor"
         class="kartu space-y-2.5 p-4 transition"
-        :class="galatItem === item.nomor ? 'border-risiko-tinggi bg-red-50' : ''"
+        :class="galatItem === item.nomor ? 'border-risiko-tinggi bg-aksen-lembut/60' : ''"
       >
         <p class="text-sm leading-snug font-bold text-ink">
           {{ item.nomor }}. {{ item.pernyataan }}
@@ -143,7 +143,7 @@ async function kirim() {
     </p>
 
     <div class="space-y-2 pt-1">
-      <UiTombol type="button" :disabled="mengirim" @click="kirim">
+      <UiTombol varian="aksen" type="button" :disabled="mengirim" @click="kirim">
         {{ mengirim ? 'Menghitung…' : lengkap ? 'Selesai & Kirim ▷' : 'Kirim Jawaban' }}
       </UiTombol>
       <UiTombol varian="kedua" ke="/hasil">Kembali ke Hasil CMDQ</UiTombol>

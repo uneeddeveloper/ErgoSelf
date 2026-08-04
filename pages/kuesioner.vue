@@ -165,7 +165,7 @@ async function kirim() {
       <div
         class="rounded-kartu border-[1.5px] border-dashed border-garis-kuat p-6 text-center text-ink-500"
       >
-        <p class="text-2xl" aria-hidden="true">☝</p>
+        <UiIkon nama="tunjuk" :ukuran="30" class="text-brand-600" />
         <p class="mt-2 text-sm">Belum ada bagian tubuh yang dipilih.</p>
         <p class="mt-1 text-xs">
           Jika memang tidak ada keluhan sama sekali, Anda tetap bisa langsung
@@ -204,7 +204,7 @@ async function kirim() {
         >
           {{ d.skor }}<span class="text-[10px] opacity-70">/{{ SKOR_SEGMEN_MAKS }}</span>
         </span>
-        <span class="shrink-0 text-ink-400" aria-hidden="true">✎</span>
+        <UiIkon nama="ubah" :ukuran="18" class="text-ink-400" />
       </button>
     </section>
 
@@ -217,7 +217,7 @@ async function kirim() {
     </p>
 
     <div class="space-y-2 pt-1">
-      <UiTombol type="button" :disabled="mengirim" @click="kirim">
+      <UiTombol varian="aksen" type="button" :disabled="mengirim" @click="kirim">
         {{ mengirim ? 'Menghitung…' : 'Selesai & Lihat Skor' }}
       </UiTombol>
       <UiTombol varian="kedua" ke="/beranda">Kembali</UiTombol>

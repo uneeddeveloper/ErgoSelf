@@ -12,10 +12,12 @@ async function keluar() {
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col">
-    <header class="sticky top-0 z-30 border-b border-garis bg-white">
-      <div class="mx-auto flex max-w-[1100px] items-center gap-2.5 px-5 py-4 sm:px-7">
-        <span class="text-lg text-brand-600" aria-hidden="true">📊</span>
+  <div class="flex min-h-screen flex-col px-3 pt-3 sm:px-5 sm:pt-5">
+    <header class="sticky top-3 z-30 mx-auto w-full max-w-[1100px] sm:top-5">
+      <div
+        class="flex items-center gap-2.5 rounded-full bg-white/90 py-2.5 pr-2.5 pl-5 shadow-(--shadow-kartu) backdrop-blur"
+      >
+        <UiIkon nama="dasbor" :ukuran="20" class="text-brand-600" />
         <UiLogo :ukuran="30" />
         <NuxtLink
           to="/admin"
@@ -46,17 +48,17 @@ async function keluar() {
       </div>
     </header>
 
-    <main class="mx-auto w-full max-w-[1100px] flex-1 px-5 py-7 sm:px-7">
-      <slot />
+    <main class="mx-auto mt-4 w-full max-w-[1100px] flex-1">
+      <div class="layar px-5 py-7 sm:px-7">
+        <slot />
+      </div>
     </main>
 
-    <footer class="border-t border-garis bg-white">
-      <div
-        class="mx-auto flex max-w-[1100px] flex-wrap justify-between gap-2 px-5 py-4 text-xs text-ink-500 sm:px-7"
-      >
-        <span>ErgoSelf — Dashboard Peneliti · Magister Terapan K3 UGM</span>
-        <span>Data penelitian bersifat rahasia</span>
-      </div>
+    <footer
+      class="mx-auto flex w-full max-w-[1100px] flex-wrap justify-between gap-2 px-2 py-6 text-xs text-brand-800/75"
+    >
+      <span>ErgoSelf — Dashboard Peneliti · Magister Terapan K3 UGM</span>
+      <span>Data penelitian bersifat rahasia</span>
     </footer>
   </div>
 </template>
