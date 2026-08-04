@@ -3,6 +3,7 @@ import {
   LABEL_KATEGORI_RISIKO,
   SARAN_KATEGORI_RISIKO,
   SKALA_FREKUENSI,
+  SKALA_KETIDAKNYAMANAN,
   SKOR_TOTAL_MAKS,
 } from '~~/lib/cmdq/skala'
 import { LABEL_REGIO, type RegioTubuh } from '~~/lib/cmdq/segmen'
@@ -51,10 +52,14 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Segmen berkeluhan + regio yang terdampak
+  // Segmen berkeluhan + regio yang terdampak.
+  // Urutan kedua (`segmen.urutan`) wajib ada: tanpa itu, dua segmen berskor
+  // sama diurutkan sesuka basis data, sehingga kartu "titik ketidaknyamanan"
+  // bisa berbeda antar pemuatan untuk responden yang sama. Seri kiri/kanan
+  // adalah kasus lazim pada data ergonomi kantor.
   const jawaban = await prisma.cmdqJawaban.findMany({
     where: { respondenId: sesi.id, skor: { gt: 0 } },
-    orderBy: { skor: 'desc' },
+    orderBy: [{ skor: 'desc' }, { segmen: { urutan: 'asc' } }],
     include: { segmen: { select: { kode: true, nama: true, regio: true } } },
   })
 
@@ -71,6 +76,12 @@ export default defineEventHandler(async (event) => {
     durasiKomputerJamPerHari: durasi,
     kategoriImt: responden.kategoriImt,
     olahraga: responden.olahraga,
+    // Dua masukan di bawah memicu rujukan tenaga kesehatan langsung dari data
+    // segmen — skor total tidak pernah cukup tinggi untuk memicunya sendiri.
+    skorSegmenTertinggi: jawaban[0]?.skor.toNumber() ?? 0,
+    jumlahSegmenBerat: jawaban.filter(
+      (j) => j.ketidaknyamananSkor === 3 && (j.gangguanSkor ?? 0) >= 2,
+    ).length,
   })
 
   // Dua sorotan temuan untuk ditampilkan sebagai poin bercentang
@@ -82,7 +93,6 @@ export default defineEventHandler(async (event) => {
     (maks, j) => Math.max(maks, j.ketidaknyamananSkor ?? 0),
     0,
   )
-  const LABEL_INTENSITAS = ['—', 'ringan', 'sedang', 'berat']
 
   return {
     responden: {
@@ -121,8 +131,9 @@ export default defineEventHandler(async (event) => {
           SKALA_FREKUENSI.find((o) => o.nilai === frekuensiTertinggi)?.label ??
           'tidak ada keluhan'
         }`,
-        `Intensitas ketidaknyamanan tertinggi: kategori ${
-          LABEL_INTENSITAS[ketidaknyamananTertinggi] ?? 'tidak ada'
+        `Intensitas ketidaknyamanan tertinggi: ${
+          SKALA_KETIDAKNYAMANAN.find((o) => o.nilai === ketidaknyamananTertinggi)
+            ?.label ?? 'tidak ada keluhan'
         }`,
         `${responden.cmdqHasil.jumlahSegmenBermasalah} dari ${responden.cmdqHasil.jumlahSegmenDinilai} bagian tubuh dilaporkan bermasalah`,
       ],

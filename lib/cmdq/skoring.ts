@@ -267,6 +267,13 @@ export function hitungSkorCmdq(
   const jumlahSegmenDinilai = perSegmen.length
   const bermasalah = perSegmen.filter((s) => s.skor > 0)
 
+  // Pemenang seri: perbandingan memakai `>` (bukan `>=`), sehingga bila dua
+  // segmen berskor sama yang menang adalah yang lebih dulu pada urutan NBM.
+  // Aturan ini dinyatakan eksplisit karena seri adalah kasus LAZIM di data
+  // ergonomi kantor — bahu kiri/kanan atau kedua pergelangan tangan sering
+  // dilaporkan identik. Mengganti `>` menjadi `>=` akan membalik setiap seri
+  // tanpa mengubah satu pun angka lain; uji di `tests/skoring-cmdq.test.ts`
+  // menjaga agar perubahan itu tidak lolos diam-diam.
   const segmenTertinggi =
     bermasalah.length > 0
       ? bermasalah.reduce((maks, s) => (s.skor > maks.skor ? s : maks))

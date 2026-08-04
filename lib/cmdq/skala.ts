@@ -91,6 +91,27 @@ export const AMBANG_TOTAL_TINGGI = SKOR_TOTAL_MAKS * PROPORSI_AMBANG_TINGGI
 export const AMBANG_SEGMEN_SEDANG = SKOR_SEGMEN_MAKS * PROPORSI_AMBANG_SEDANG
 export const AMBANG_SEGMEN_TINGGI = SKOR_SEGMEN_MAKS * PROPORSI_AMBANG_TINGGI
 
+// ── Ambang rujukan tenaga kesehatan ────────────────────────────────────────
+//
+// SENGAJA TERPISAH dari ambang kategori risiko di atas.
+//
+// Ambang total (252 / 504) hanya tercapai bila responden melaporkan keluhan
+// maksimum pada 10 dan 19 bagian tubuh sekaligus — praktis tak terjangkau.
+// Menggantungkan rujukan pada `kategoriRisiko === 'TINGGI'` berarti responden
+// dengan nyeri berat harian di beberapa bagian tubuh tidak pernah disarankan
+// mencari pertolongan. Karena itu rujukan dipicu langsung dari data segmen.
+//
+// Aturan umum: jalur keselamatan tidak boleh bergantung pada kategori turunan.
+
+/** Satu segmen dengan skor ≥ nilai ini sudah cukup memicu rujukan (default: 18) */
+export const AMBANG_RUJUKAN_SKOR_SEGMEN = AMBANG_SEGMEN_TINGGI
+
+/**
+ * Alternatif pemicu: banyaknya segmen yang terasa sangat tidak nyaman
+ * (ketidaknyamanan = 3) sekaligus mengganggu pekerjaan (gangguan ≥ 2).
+ */
+export const AMBANG_RUJUKAN_JUMLAH_SEGMEN_BERAT = 3
+
 export type KategoriRisiko = 'RENDAH' | 'SEDANG' | 'TINGGI'
 
 export const LABEL_KATEGORI_RISIKO: Record<KategoriRisiko, string> = {
@@ -99,9 +120,15 @@ export const LABEL_KATEGORI_RISIKO: Record<KategoriRisiko, string> = {
   TINGGI: 'Risiko Tinggi',
 }
 
+// Catatan penting untuk teks di bawah: kalimat ini muncul berdasarkan SKOR
+// TOTAL, yang menjumlahkan 28 segmen. Skor total rendah TIDAK berarti tiap
+// bagian tubuh baik-baik saja — responden bisa punya satu bagian yang sangat
+// berat namun tetap berkategori RENDAH. Karena itu teks RENDAH sengaja tidak
+// menyimpulkan bahwa keluhan responden ringan, dan selalu menunjuk ke saran
+// spesifik per bagian tubuh di bawahnya.
 export const SARAN_KATEGORI_RISIKO: Record<KategoriRisiko, string> = {
   RENDAH:
-    'Keluhan yang Anda rasakan masih tergolong ringan. Pertahankan postur kerja yang baik dan lakukan peregangan singkat setiap 1–2 jam.',
+    'Skor total keluhan Anda berada pada rentang bawah. Pertahankan postur kerja yang baik dan lakukan peregangan singkat setiap 1–2 jam. Bila ada bagian tubuh tertentu yang terasa berat, perhatikan saran khusus di bawah ini.',
   SEDANG:
     'Terdapat keluhan yang perlu diperhatikan. Periksa kembali penataan meja, kursi, dan posisi monitor Anda, serta perbanyak jeda istirahat aktif.',
   TINGGI:

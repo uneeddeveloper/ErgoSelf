@@ -161,9 +161,16 @@ model Responden {
 
 // ───────────────────────────────────────────────────────────────────────────
 //  2. MASTER SEGMEN TUBUH — 28 segmen Nordic Body Map (indeks 0–27)
-//     Disimpan sebagai tabel master (bukan enum) supaya jumlah/urutan segmen
-//     bisa diubah lewat seed tanpa migrasi skema, dan supaya body map SVG
-//     bisa merujuk segmen lewat `kode`.
+//
+//     SUMBER KEBENARAN INSTRUMEN ADALAH `lib/cmdq/segmen.ts`, BUKAN TABEL INI.
+//     `hitungSkorCmdq()` memvalidasi kelengkapan jawaban terhadap konstanta
+//     `SEGMEN_TUBUH` di berkas tersebut, tidak pernah terhadap basis data.
+//     Mengubah isi tabel ini lewat seed TIDAK mengubah instrumen — ia hanya
+//     membuat kedua sisi tidak sinkron dan menolak setiap pengiriman CMDQ.
+//
+//     Tabel ini ada untuk menyediakan target foreign key yang stabil bagi
+//     `cmdq_jawaban`, sehingga integritas referensial jawaban terjaga dan
+//     analisis per segmen dapat dilakukan langsung di SQL.
 // ───────────────────────────────────────────────────────────────────────────
 
 model SegmenTubuh {
@@ -176,6 +183,9 @@ model SegmenTubuh {
   regio  RegioTubuh
   /// Nomor segmen NBM baku (0–27), sekaligus urutan tampil atas → bawah
   urutan Int        @unique
+  /// Penanda dokumentasi saja — TIDAK dibaca oleh query mana pun. Instrumen
+  /// harus selalu lengkap 28 segmen; menonaktifkan satu segmen akan membuat
+  /// validasi kelengkapan gagal untuk seluruh responden.
   aktif  Boolean    @default(true)
 
   jawaban        CmdqJawaban[]

@@ -16,7 +16,11 @@
  */
 
 import type { RegioTubuh } from './cmdq/segmen'
-import type { KategoriRisiko } from './cmdq/skala'
+import {
+  AMBANG_RUJUKAN_JUMLAH_SEGMEN_BERAT,
+  AMBANG_RUJUKAN_SKOR_SEGMEN,
+  type KategoriRisiko,
+} from './cmdq/skala'
 import type { KategoriImt } from './imt'
 
 export interface Rekomendasi {
@@ -34,6 +38,35 @@ export interface MasukanRekomendasi {
   durasiKomputerJamPerHari?: number | null
   kategoriImt?: KategoriImt | null
   olahraga?: boolean | null
+  /**
+   * Skor segmen tertinggi (0–27). Dipakai memicu rujukan tenaga kesehatan
+   * tanpa melewati kategori risiko total — lihat `perluRujukan()`.
+   */
+  skorSegmenTertinggi?: number | null
+  /**
+   * Banyaknya segmen yang sangat tidak nyaman (ketidaknyamanan = 3) sekaligus
+   * mengganggu pekerjaan (gangguan ≥ 2).
+   */
+  jumlahSegmenBerat?: number | null
+}
+
+/**
+ * Apakah responden perlu diarahkan ke petugas K3 / tenaga kesehatan.
+ *
+ * Sengaja TIDAK memakai `kategoriRisiko` sebagai satu-satunya pemicu. Skor
+ * total menjumlahkan 28 segmen, sehingga responden dengan nyeri berat pada
+ * beberapa bagian tubuh tetap berkategori RENDAH — dan tanpa aturan di bawah
+ * ia tidak akan pernah disarankan mencari pertolongan.
+ *
+ * Diekspor supaya dapat diuji langsung dan dipakai ulang di luar penyusunan
+ * rekomendasi (mis. penandaan pada dasbor peneliti).
+ */
+export function perluRujukan(masukan: MasukanRekomendasi): boolean {
+  if (masukan.kategoriRisiko === 'TINGGI') return true
+  if ((masukan.skorSegmenTertinggi ?? 0) >= AMBANG_RUJUKAN_SKOR_SEGMEN) return true
+  return (
+    (masukan.jumlahSegmenBerat ?? 0) >= AMBANG_RUJUKAN_JUMLAH_SEGMEN_BERAT
+  )
 }
 
 const SARAN_PER_REGIO: Record<RegioTubuh, Rekomendasi> = {
@@ -109,7 +142,7 @@ export function susunRekomendasi(masukan: MasukanRekomendasi): Rekomendasi[] {
     hasil.push({
       ikon: '🏃',
       judul: 'Mulai Aktivitas Fisik Ringan',
-      isi: 'Anda menyatakan belum rutin berolahraga. Aktivitas ringan 2–3 kali seminggu (jalan cepat 30 menit) terbukti menurunkan keluhan otot dan rangka pada pekerja kantor.',
+      isi: 'Anda menyatakan belum rutin berolahraga. Aktivitas ringan 2–3 kali seminggu (jalan cepat 30 menit) dapat membantu mengurangi keluhan otot dan rangka pada pekerja kantor.',
       pemicu: 'Anda menyatakan tidak rutin berolahraga',
     })
   }
@@ -127,24 +160,31 @@ export function susunRekomendasi(masukan: MasukanRekomendasi): Rekomendasi[] {
     })
   }
 
-  // 5. Rujukan — hanya untuk risiko tinggi
-  if (masukan.kategoriRisiko === 'TINGGI') {
+  // 5. Rujukan tenaga kesehatan — dipicu dari data segmen, bukan dari kategori
+  //    risiko total. Lihat `perluRujukan()` untuk alasannya.
+  const rujukan = perluRujukan(masukan)
+  if (rujukan) {
     hasil.push({
       ikon: '🩺',
       judul: 'Konsultasi Petugas K3',
-      isi: 'Tingkat keluhan Anda tergolong tinggi. Segera hubungi petugas K3 atau tenaga kesehatan di perusahaan untuk pemeriksaan lebih lanjut dan penyesuaian stasiun kerja.',
-      pemicu: 'Skor CMDQ Anda masuk kategori risiko tinggi',
+      isi: 'Ada bagian tubuh yang Anda laporkan terasa berat dan mengganggu pekerjaan. Sebaiknya hubungi petugas K3 atau tenaga kesehatan di perusahaan untuk pemeriksaan lebih lanjut dan penyesuaian stasiun kerja.',
+      pemicu:
+        masukan.kategoriRisiko === 'TINGGI'
+          ? 'Skor CMDQ Anda masuk kategori risiko tinggi'
+          : 'Terdapat keluhan berat pada satu atau beberapa bagian tubuh',
     })
   }
 
-  // 6. Asesmen ulang — penutup untuk semua responden
+  // 6. Asesmen ulang — penutup untuk semua responden. Intervalnya mengikuti
+  //    kebutuhan rujukan, bukan kategori risiko, supaya responden berkeluhan
+  //    berat tidak diminta menunggu 3 bulan hanya karena skor totalnya rendah.
   hasil.push({
     ikon: '📅',
     judul: 'Asesmen Ulang',
     isi:
-      masukan.kategoriRisiko === 'RENDAH'
-        ? 'Jadwalkan asesmen ulang dalam 3 bulan untuk memantau perubahan kondisi otot dan rangka Anda.'
-        : 'Jadwalkan asesmen ulang dalam 1 bulan setelah melakukan perbaikan di atas, untuk melihat apakah keluhan berkurang.',
+      rujukan || masukan.kategoriRisiko !== 'RENDAH'
+        ? 'Jadwalkan asesmen ulang dalam 1 bulan setelah melakukan perbaikan di atas, untuk melihat apakah keluhan berkurang.'
+        : 'Jadwalkan asesmen ulang dalam 3 bulan untuk memantau perubahan kondisi otot dan rangka Anda.',
     pemicu: 'Pemantauan berkala',
   })
 
