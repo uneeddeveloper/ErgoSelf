@@ -103,7 +103,7 @@ model Responden {
   kodeResponden String @unique @db.VarChar(32)
   nama          String @db.VarChar(120)
   email         String @unique @db.VarChar(160)
-  passwordHash  String @db.VarChar(255)
+  passwordHash  String? @db.VarChar(255) // Tambahkan tanda ? di sini
 
   /// Persetujuan etik penelitian (informed consent). Wajib dicentang saat
   /// registrasi; tanggalnya direkam sebagai bukti kepatuhan etik riset.
