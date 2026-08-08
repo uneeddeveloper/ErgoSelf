@@ -16,21 +16,33 @@
 import { z } from 'zod'
 import { BATAS_BERAT_KG, BATAS_TINGGI_CM } from '../imt'
 
-export const BATAS_USIA = { min: 17, maks: 70 } as const
-export const BATAS_MASA_KERJA = { min: 0, maks: 50 } as const
-export const BATAS_DURASI_KOMPUTER = { min: 0, maks: 24 } as const
 export const BATAS_FREKUENSI_OLAHRAGA = { min: 1, maks: 14 } as const
 
-/** Menerima "170", "170,5" maupun 170.5 → 170.5 */
-const angkaLonggar = z.preprocess((nilai) => {
-  if (typeof nilai === 'string') {
-    const bersih = nilai.trim().replace(',', '.')
-    if (bersih === '') return undefined
+/** Helper universal untuk menangani data wajib diisi (string/boolean/angka) */
+const wajibDiisi = (pesan: string) =>
+  z.preprocess((val, ctx) => {
+    if (val === undefined || val === null || val === '') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: pesan })
+      return z.NEVER
+    }
+    return val
+  }, z.any())
+
+/** Helper khusus untuk input angka dari form */
+const angkaLonggar = (pesanWajib: string) =>
+  z.preprocess((val, ctx) => {
+    if (val === undefined || val === null || val === '') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: pesanWajib })
+      return z.NEVER
+    }
+    const bersih = typeof val === 'string' ? val.trim().replace(',', '.') : val
     const angka = Number(bersih)
-    return Number.isNaN(angka) ? nilai : angka
-  }
-  return nilai
-}, z.number())
+    if (Number.isNaN(angka)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: pesanWajib })
+      return z.NEVER
+    }
+    return angka
+  }, z.number())
 
 export const skemaProfilResponden = z
   .object({
@@ -41,55 +53,45 @@ export const skemaProfilResponden = z
       .optional()
       .transform((v) => (v === '' ? undefined : v)),
 
-    usia: angkaLonggar
-      .refine(Number.isInteger, 'Usia harus bilangan bulat')
-      .refine(
-        (v) => v >= BATAS_USIA.min && v <= BATAS_USIA.maks,
-        `Usia harus antara ${BATAS_USIA.min}–${BATAS_USIA.maks} tahun`,
-      ),
+    usia: wajibDiisi('Usia wajib dipilih'),
 
-    jenisKelamin: z.enum(['LAKI_LAKI', 'PEREMPUAN'], {
-      error: 'Jenis kelamin wajib dipilih',
-    }),
-
-    masaKerjaTahun: angkaLonggar.refine(
-      (v) => v >= BATAS_MASA_KERJA.min && v <= BATAS_MASA_KERJA.maks,
-      `Masa kerja harus antara ${BATAS_MASA_KERJA.min}–${BATAS_MASA_KERJA.maks} tahun`,
+    jenisKelamin: wajibDiisi('Jenis kelamin wajib dipilih').refine(
+      (v) => v === 'LAKI_LAKI' || v === 'PEREMPUAN',
+      { message: 'Jenis kelamin wajib dipilih' }
     ),
 
-    durasiKomputerJamPerHari: angkaLonggar.refine(
-      (v) =>
-        v >= BATAS_DURASI_KOMPUTER.min && v <= BATAS_DURASI_KOMPUTER.maks,
-      `Durasi penggunaan komputer harus antara ${BATAS_DURASI_KOMPUTER.min}–${BATAS_DURASI_KOMPUTER.maks} jam per hari`,
-    ),
+    masaKerjaTahun: wajibDiisi('Masa kerja wajib dipilih'),
 
-    tinggiBadanCm: angkaLonggar.refine(
+    durasiKomputerJamPerHari: wajibDiisi('Durasi penggunaan komputer wajib dipilih'),
+
+    tinggiBadanCm: angkaLonggar('Tinggi badan wajib diisi').refine(
       (v) => v >= BATAS_TINGGI_CM.min && v <= BATAS_TINGGI_CM.maks,
-      `Tinggi badan harus antara ${BATAS_TINGGI_CM.min}–${BATAS_TINGGI_CM.maks} cm`,
+      `Tinggi badan harus antara ${BATAS_TINGGI_CM.min}–${BATAS_TINGGI_CM.maks} cm`
     ),
 
-    beratBadanKg: angkaLonggar.refine(
+    beratBadanKg: angkaLonggar('Berat badan wajib diisi').refine(
       (v) => v >= BATAS_BERAT_KG.min && v <= BATAS_BERAT_KG.maks,
-      `Berat badan harus antara ${BATAS_BERAT_KG.min}–${BATAS_BERAT_KG.maks} kg`,
+      `Berat badan harus antara ${BATAS_BERAT_KG.min}–${BATAS_BERAT_KG.maks} kg`
     ),
 
-    olahraga: z.boolean({ error: 'Kebiasaan olahraga wajib dipilih' }),
+    olahraga: wajibDiisi('Kebiasaan olahraga wajib dipilih'),
 
-    frekuensiOlahragaPerMinggu: angkaLonggar
-      .refine(Number.isInteger, 'Frekuensi olahraga harus bilangan bulat')
+    frekuensiOlahragaPerMinggu: angkaLonggar('Frekuensi olahraga wajib diisi')
+      .optional()
+      .refine(
+        (v) => v === undefined || Number.isInteger(v),
+        'Frekuensi olahraga harus bilangan bulat'
+      )
       .refine(
         (v) =>
-          v >= BATAS_FREKUENSI_OLAHRAGA.min &&
-          v <= BATAS_FREKUENSI_OLAHRAGA.maks,
-        `Frekuensi olahraga harus antara ${BATAS_FREKUENSI_OLAHRAGA.min}–${BATAS_FREKUENSI_OLAHRAGA.maks} kali per minggu`,
-      )
-      .optional(),
+          v === undefined ||
+          (v >= BATAS_FREKUENSI_OLAHRAGA.min && v <= BATAS_FREKUENSI_OLAHRAGA.maks),
+        `Frekuensi olahraga harus antara ${BATAS_FREKUENSI_OLAHRAGA.min}–${BATAS_FREKUENSI_OLAHRAGA.maks} kali per minggu`
+      ),
 
-    merokok: z.boolean({ error: 'Kebiasaan merokok wajib dipilih' }),
+    merokok: wajibDiisi('Kebiasaan merokok wajib dipilih'),
 
-    riwayatMsds: z.boolean({
-      error: 'Riwayat gangguan otot/rangka wajib dipilih',
-    }),
+    riwayatMsds: wajibDiisi('Riwayat gangguan otot/rangka wajib dipilih'),
 
     keteranganRiwayatMsds: z
       .string()
@@ -98,37 +100,26 @@ export const skemaProfilResponden = z
       .optional()
       .transform((v) => (v === '' ? undefined : v)),
   })
-  // Frekuensi olahraga hanya wajib bila responden menjawab "ya" berolahraga.
   .refine(
     (data) => !data.olahraga || data.frekuensiOlahragaPerMinggu !== undefined,
     {
       path: ['frekuensiOlahragaPerMinggu'],
-      error: 'Isi berapa kali Anda berolahraga dalam seminggu',
-    },
+      message: 'Isi berapa kali Anda berolahraga dalam seminggu',
+    }
   )
-  // Keterangan riwayat hanya wajib bila menjawab "ya" punya riwayat.
   .refine((data) => !data.riwayatMsds || !!data.keteranganRiwayatMsds, {
     path: ['keteranganRiwayatMsds'],
-    error: 'Jelaskan singkat riwayat gangguan yang pernah dialami',
+    message: 'Jelaskan singkat riwayat gangguan yang pernah dialami',
   })
-  // Bersihkan data yang tidak relevan agar tidak tersimpan menyesatkan.
   .transform((data) => ({
     ...data,
-    frekuensiOlahragaPerMinggu: data.olahraga
-      ? data.frekuensiOlahragaPerMinggu
-      : undefined,
-    keteranganRiwayatMsds: data.riwayatMsds
-      ? data.keteranganRiwayatMsds
-      : undefined,
+    frekuensiOlahragaPerMinggu: data.olahraga ? data.frekuensiOlahragaPerMinggu : undefined,
+    keteranganRiwayatMsds: data.riwayatMsds ? data.keteranganRiwayatMsds : undefined,
   }))
 
 export type ProfilRespondenInput = z.input<typeof skemaProfilResponden>
 export type ProfilRespondenOutput = z.output<typeof skemaProfilResponden>
 
-/**
- * Mengubah ZodError menjadi peta { namaField: pesan } supaya mudah
- * ditampilkan di bawah masing-masing input pada form.
- */
 export function petaGalat(error: z.ZodError): Record<string, string> {
   const hasil: Record<string, string> = {}
   for (const isu of error.issues) {

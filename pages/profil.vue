@@ -3,27 +3,27 @@ import { evaluasiImt } from '~~/lib/imt'
 import {
   petaGalat,
   skemaProfilResponden,
-  BATAS_USIA,
-  BATAS_MASA_KERJA,
-  BATAS_DURASI_KOMPUTER,
   BATAS_FREKUENSI_OLAHRAGA,
 } from '~~/lib/validasi/responden'
 import { nomorTahap } from '~~/lib/alur'
 import { OPSI_YA_TIDAK } from '~~/types/ui'
-import type { OpsiPilihan } from '~~/types/ui'
 
 /**
  * Langkah 2 alur responden — Profil Pekerja (mockup layar 02).
- *
- * Catatan desain: mockup memakai sakelar (toggle) untuk pertanyaan kebiasaan.
- * Di sini sengaja dipakai pilihan Ya/Tidak, karena sakelar selalu punya
- * posisi awal "mati" — responden yang melewatkannya akan terekam sebagai
- * "tidak" tanpa pernah menjawab. Pilihan eksplisit menghilangkan bias itu.
  */
 definePageMeta({ middleware: 'responden' })
 useHead({ title: 'Profil Pekerja — ErgoSelf' })
 
 const { data: profil } = await useFetch('/api/responden/saya')
+
+// Opsi Pilihan Rentang Kategori
+const opsiUsia = ['17-22 Thn', '23-28 Thn', '29-34 Thn', '35-40 Thn', '41-46 Thn', '47-52 Thn', '> 52 Thn']
+const opsiMasaKerja = ['< 5 Thn', '> 5 Thn', '> 10 Thn']
+const opsiDurasiKomputer = ['< 6 Jam', '> 6 Jam']
+const opsiJenisKelamin = [
+  { nilai: 'LAKI_LAKI', label: 'Laki-laki' },
+  { nilai: 'PEREMPUAN', label: 'Perempuan' },
+]
 
 const form = reactive({
   unitKerja: '',
@@ -47,10 +47,10 @@ watch(
     if (!p || p.statusProfil !== 'SELESAI') return
     Object.assign(form, {
       unitKerja: p.unitKerja ?? '',
-      usia: String(p.usia ?? ''),
+      usia: p.usia ?? '',
       jenisKelamin: p.jenisKelamin ?? undefined,
-      masaKerjaTahun: String(p.masaKerjaTahun ?? ''),
-      durasiKomputerJamPerHari: String(p.durasiKomputerJamPerHari ?? ''),
+      masaKerjaTahun: p.masaKerjaTahun ?? '',
+      durasiKomputerJamPerHari: p.durasiKomputerJamPerHari ?? '',
       tinggiBadanCm: String(p.tinggiBadanCm ?? ''),
       beratBadanKg: String(p.beratBadanKg ?? ''),
       olahraga: p.olahraga ?? undefined,
@@ -66,11 +66,6 @@ watch(
 const galat = ref<Record<string, string>>({})
 const galatUmum = ref('')
 const mengirim = ref(false)
-
-const OPSI_JENIS_KELAMIN: OpsiPilihan<'LAKI_LAKI' | 'PEREMPUAN'>[] = [
-  { nilai: 'LAKI_LAKI', label: 'Laki-laki' },
-  { nilai: 'PEREMPUAN', label: 'Perempuan' },
-]
 
 /** Pratinjau IMT langsung saat responden mengetik tinggi & berat badan. */
 const pratinjauImt = computed(() => {
@@ -174,42 +169,59 @@ function kelasFor(field: string) {
       <fieldset class="kartu space-y-4 p-4">
         <legend class="label-seksi float-none flex items-center gap-1.5"><UiIkon nama="profil" :ukuran="16" /> Informasi Pribadi</legend>
 
-        <UiKolom
-          label="Usia (tahun)"
-          untuk="usia"
-          wajib
-          :petunjuk="`${BATAS_USIA.min}–${BATAS_USIA.maks} tahun`"
-          :galat="galat.usia"
-          :data-galat="!!galat.usia"
-        >
+        <UiKolom label="Nama / Kode Responden">
           <input
-            id="usia"
-            v-model="form.usia"
-            type="number"
-            inputmode="numeric"
-            :min="BATAS_USIA.min"
-            :max="BATAS_USIA.maks"
-            placeholder="Contoh: 32"
-            :class="kelasFor('usia')"
-            @input="bersihkanGalat('usia')"
+            :value="profil?.nama"
+            disabled
+            type="text"
+            class="isian bg-gray-50 opacity-70 cursor-not-allowed"
           />
         </UiKolom>
 
-        <UiKolom
-          label="Jenis kelamin"
-          wajib
-          :galat="galat.jenisKelamin"
-          :data-galat="!!galat.jenisKelamin"
-        >
-          <UiPilihan
-            v-model="form.jenisKelamin"
-            nama="jenisKelamin"
-            tata="padat"
-            :opsi="OPSI_JENIS_KELAMIN"
-            :galat="!!galat.jenisKelamin"
-            @update:model-value="bersihkanGalat('jenisKelamin')"
-          />
-        </UiKolom>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <!-- Usia (Grid Pilihan) -->
+          <UiKolom
+            label="Usia (Tahun)"
+            wajib
+            :galat="galat.usia"
+            :data-galat="!!galat.usia"
+          >
+            <div class="grid grid-cols-3 gap-2 mt-1">
+              <button
+                v-for="item in opsiUsia"
+                :key="item"
+                type="button"
+                :class="[
+                  'rounded-lg border py-2 text-xs font-semibold transition',
+                  form.usia === item 
+                    ? 'border-brand-600 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20' 
+                    : 'border-garis bg-white text-ink hover:bg-gray-50',
+                  galat.usia ? 'border-risiko-tinggi' : ''
+                ]"
+                @click="form.usia = item; bersihkanGalat('usia')"
+              >
+                {{ item }}
+              </button>
+            </div>
+          </UiKolom>
+
+          <!-- Jenis Kelamin (Grid Pilihan) -->
+          <UiKolom
+            label="Jenis kelamin"
+            wajib
+            :galat="galat.jenisKelamin"
+            :data-galat="!!galat.jenisKelamin"
+          >
+            <UiPilihan
+              v-model="form.jenisKelamin"
+              nama="jenisKelamin"
+              tata="padat"
+              :opsi="opsiJenisKelamin"
+              :galat="!!galat.jenisKelamin"
+              @update:model-value="bersihkanGalat('jenisKelamin')"
+            />
+          </UiKolom>
+        </div>
 
         <UiKolom
           label="Unit kerja / bagian"
@@ -232,42 +244,56 @@ function kelasFor(field: string) {
       <fieldset class="kartu space-y-4 p-4">
         <legend class="label-seksi float-none flex items-center gap-1.5"><UiIkon nama="pekerjaan" :ukuran="16" /> Informasi Pekerjaan</legend>
 
+        <!-- Masa Kerja -->
         <UiKolom
-          label="Masa kerja (tahun)"
-          untuk="masaKerja"
+          label="Masa Kerja (Tahun)"
           wajib
-          :petunjuk="`Boleh desimal, mis. 2,5 · maksimal ${BATAS_MASA_KERJA.maks} tahun`"
           :galat="galat.masaKerjaTahun"
           :data-galat="!!galat.masaKerjaTahun"
         >
-          <input
-            id="masaKerja"
-            v-model="form.masaKerjaTahun"
-            type="text"
-            inputmode="decimal"
-            placeholder="Contoh: 5"
-            :class="kelasFor('masaKerjaTahun')"
-            @input="bersihkanGalat('masaKerjaTahun')"
-          />
+          <div class="grid grid-cols-3 gap-2 mt-1">
+            <button
+              v-for="item in opsiMasaKerja"
+              :key="item"
+              type="button"
+              :class="[
+                'rounded-lg border py-2.5 text-xs font-semibold transition',
+                form.masaKerjaTahun === item 
+                  ? 'border-brand-600 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20' 
+                  : 'border-garis bg-white text-ink hover:bg-gray-50',
+                galat.masaKerjaTahun ? 'border-risiko-tinggi' : ''
+              ]"
+              @click="form.masaKerjaTahun = item; bersihkanGalat('masaKerjaTahun')"
+            >
+              {{ item }}
+            </button>
+          </div>
         </UiKolom>
 
+        <!-- Durasi Penggunaan Komputer -->
         <UiKolom
-          label="Durasi penggunaan komputer (jam/hari)"
-          untuk="durasi"
+          label="Durasi Penggunaan Komputer (Jam/Hari)"
           wajib
-          :petunjuk="`Rata-rata per hari, 0–${BATAS_DURASI_KOMPUTER.maks} jam`"
           :galat="galat.durasiKomputerJamPerHari"
           :data-galat="!!galat.durasiKomputerJamPerHari"
         >
-          <input
-            id="durasi"
-            v-model="form.durasiKomputerJamPerHari"
-            type="text"
-            inputmode="decimal"
-            placeholder="Contoh: 8"
-            :class="kelasFor('durasiKomputerJamPerHari')"
-            @input="bersihkanGalat('durasiKomputerJamPerHari')"
-          />
+          <div class="grid grid-cols-2 gap-2 mt-1">
+            <button
+              v-for="item in opsiDurasiKomputer"
+              :key="item"
+              type="button"
+              :class="[
+                'rounded-lg border py-2.5 text-xs font-semibold transition',
+                form.durasiKomputerJamPerHari === item 
+                  ? 'border-brand-600 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20' 
+                  : 'border-garis bg-white text-ink hover:bg-gray-50',
+                galat.durasiKomputerJamPerHari ? 'border-risiko-tinggi' : ''
+              ]"
+              @click="form.durasiKomputerJamPerHari = item; bersihkanGalat('durasiKomputerJamPerHari')"
+            >
+              {{ item }}
+            </button>
+          </div>
         </UiKolom>
       </fieldset>
 

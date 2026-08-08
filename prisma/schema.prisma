@@ -116,14 +116,14 @@ model Responden {
   unitKerja String? @db.VarChar(120)
 
   // — Karakteristik individu —
-  usia         Int?
+  usia         String? @db.VarChar(20)
   jenisKelamin JenisKelamin?
 
   // — Karakteristik pekerjaan —
-  /// Masa kerja dalam tahun (desimal, mis. 2,5 tahun)
-  masaKerjaTahun           Decimal? @db.Decimal(4, 1)
-  /// Rata-rata durasi penggunaan komputer per hari (jam)
-  durasiKomputerJamPerHari Decimal? @db.Decimal(4, 1)
+  /// Masa kerja dalam kategori rentang tahun
+  masaKerjaTahun          String? @db.VarChar(20)
+  /// Rata-rata durasi penggunaan komputer per hari dalam rentang (jam)
+  durasiKomputerJamPerHari String? @db.VarChar(20)
 
   // — Antropometri —
   tinggiBadanCm Decimal?     @db.Decimal(5, 1)
