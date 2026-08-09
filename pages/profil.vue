@@ -116,7 +116,9 @@ async function kirim() {
 
   try {
     await $fetch('/api/responden/profil', { method: 'PUT', body: cek.data })
-    await navigateTo('/kuesioner')
+    // SOLUSI: Gunakan window.location.href menggantikan navigateTo
+    // Ini memaksa browser memuat cookie sesi baru dari server tanpa tertahan middleware client
+    window.location.href = '/kuesioner'
   } catch (error: any) {
     const dariServer = error?.data?.data?.galat ?? error?.data?.galat
     if (dariServer) {
