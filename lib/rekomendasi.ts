@@ -23,6 +23,13 @@ import {
 } from './cmdq/skala'
 import type { KategoriImt } from './imt'
 
+/**
+ * Batas jam kerja komputer per hari yang memicu saran micro-break lebih
+ * sering. Berpasangan dengan `JAM_KOMPUTER_REPRESENTATIF` di
+ * `lib/sosiodemografi.ts` — lihat catatan di sana sebelum mengubahnya.
+ */
+export const AMBANG_JAM_PAPARAN_PANJANG = 8
+
 export interface Rekomendasi {
   ikon: string
   judul: string
@@ -35,7 +42,18 @@ export interface MasukanRekomendasi {
   kategoriRisiko: KategoriRisiko
   /** Regio yang punya minimal satu segmen berkeluhan */
   regioBermasalah: readonly RegioTubuh[]
+  /**
+   * Jam representatif untuk perbandingan ambang. Responden memilih KATEGORI
+   * ("< 6 Jam" / "> 6 Jam"), jadi angka ini adalah hasil pemetaan lewat
+   * `jamKomputerRepresentatif()`, bukan jawaban harfiah responden.
+   */
   durasiKomputerJamPerHari?: number | null
+  /**
+   * Label kategori yang benar-benar dipilih responden. Dipakai untuk teks
+   * saran supaya ia membaca ulang pilihannya sendiri, bukan angka hasil
+   * pemetaan yang tidak pernah ia isi.
+   */
+  durasiKomputerLabel?: string | null
   kategoriImt?: KategoriImt | null
   olahraga?: boolean | null
   /**
@@ -123,18 +141,21 @@ export function susunRekomendasi(masukan: MasukanRekomendasi): Rekomendasi[] {
 
   // 2. Micro-break — selalu ada, tetapi frekuensinya menyesuaikan durasi kerja
   const jam = masukan.durasiKomputerJamPerHari ?? 0
+  const paparanPanjang = jam >= AMBANG_JAM_PAPARAN_PANJANG
+  // Sebut ulang pilihan responden apa adanya ("> 6 Jam"); `${jam} jam` hanya
+  // dipakai bila pemanggil memang punya angka harfiah — lihat catatan pada
+  // `durasiKomputerLabel`.
+  const sebutanDurasi = masukan.durasiKomputerLabel ?? `${jam} jam`
   hasil.push({
     ikon: '⏱',
     judul: 'Micro-breaks',
-    isi:
-      jam >= 8
-        ? 'Anda bekerja di depan komputer ' +
-          `${jam} jam sehari. Lakukan peregangan singkat 2–3 menit setiap 45 menit, dan berdiri sejenak setiap 2 jam.`
-        : 'Lakukan peregangan singkat 2–3 menit setiap 60 menit bekerja untuk merilekskan otot leher dan bahu.',
-    pemicu:
-      jam >= 8
-        ? `Durasi penggunaan komputer Anda ${jam} jam per hari`
-        : 'Berlaku untuk semua pengguna komputer',
+    isi: paparanPanjang
+      ? `Anda bekerja di depan komputer ${sebutanDurasi} sehari. ` +
+        'Lakukan peregangan singkat 2–3 menit setiap 45 menit, dan berdiri sejenak setiap 2 jam.'
+      : 'Lakukan peregangan singkat 2–3 menit setiap 60 menit bekerja untuk merilekskan otot leher dan bahu.',
+    pemicu: paparanPanjang
+      ? `Durasi penggunaan komputer Anda ${sebutanDurasi} per hari`
+      : 'Berlaku untuk semua pengguna komputer',
   })
 
   // 3. Aktivitas fisik — hanya bila responden menyatakan tidak berolahraga

@@ -110,16 +110,32 @@ model Responden {
   setujuEtik         Boolean   @default(false)
   tanggalPersetujuan DateTime?
 
-  // ── Profil pekerja (diisi pada langkah 2, terpisah dari registrasi) ─────
-  // Seluruh kolom di bawah opsional karena akun sudah ada sebelum profil
-  // terisi. Kelengkapannya ditandai oleh `statusProfil`.
-  unitKerja String? @db.VarChar(120)
+  // ── Data sosiodemografis (diisi pada langkah 2, terpisah dari registrasi) ─
+  // Seluruh kolom di bawah opsional DI BASIS DATA karena akun sudah ada
+  // sebelum profil terisi — bukan karena boleh dikosongkan. Kewajiban
+  // mengisinya ditegakkan di `lib/validasi/responden.ts`; kelengkapannya
+  // ditandai oleh `statusProfil`.
+  //
+  // Kolom kategorik menyimpan LABEL PILIHANNYA SENDIRI ("23-28 Thn"), bukan
+  // kode angka — daftar sahnya ada di `lib/sosiodemografi.ts`. Jangan pernah
+  // membandingkannya dengan `gte`/`lte`: pada VARCHAR, "> 52 Thn" terurut
+  // sebelum "17-22 Thn".
 
   // — Karakteristik individu —
   usia         String? @db.VarChar(20)
   jenisKelamin JenisKelamin?
 
-  // — Karakteristik pekerjaan —
+  // — Karakteristik okupasional —
+  /// Divisi/departemen. Nilai di luar daftar baku dimungkinkan lewat pilihan
+  /// "Lainnya" pada form — yang tersimpan adalah teks yang diketik responden,
+  /// bukan kata "Lainnya".
+  divisi  String? @db.VarChar(120)
+  /// Jenjang jabatan struktural. Idem soal "Lainnya".
+  jabatan String? @db.VarChar(120)
+  /// Sub-bagian/seksi — keterangan bebas yang lebih rinci dari divisi.
+  /// Satu-satunya kolom sosiodemografis yang memang opsional bagi responden.
+  unitKerja String? @db.VarChar(120)
+
   /// Masa kerja dalam kategori rentang tahun
   masaKerjaTahun          String? @db.VarChar(20)
   /// Rata-rata durasi penggunaan komputer per hari dalam rentang (jam)
@@ -156,6 +172,8 @@ model Responden {
   @@index([jenisKelamin])
   @@index([kategoriImt])
   @@index([usia])
+  @@index([divisi])
+  @@index([jabatan])
   @@map("responden")
 }
 

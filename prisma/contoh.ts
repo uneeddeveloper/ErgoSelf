@@ -16,19 +16,36 @@ import { evaluasiImt } from '../lib/imt'
 import { SEGMEN_TUBUH } from '../lib/cmdq/segmen'
 import { hitungSkorCmdq } from '../lib/cmdq/skoring'
 import { hitungSkorSus } from '../lib/sus/skoring'
+import type {
+  OpsiDurasiKomputer,
+  OpsiMasaKerja,
+  OpsiUsia,
+} from '../lib/sosiodemografi'
 
 const prisma = new PrismaClient()
 const PREFIKS = 'DEMO-'
 
+/**
+ * Variabel sosiodemografis ditulis sebagai LABEL KATEGORI, persis seperti yang
+ * tersimpan dari form — bukan angka. Menulisnya sebagai angka (mis. `usia: 27`)
+ * membuat data contoh tidak pernah cocok dengan filter dasbor mana pun, dan
+ * memunculkan kategori palsu bersisi satu responden di hasil ekspor.
+ *
+ * Satu responden (`Lina Marlina`) sengaja memakai divisi di luar daftar baku
+ * untuk menguji jalur pilihan "Lainnya" pada tampilan dasbor dan ekspor.
+ */
 interface Contoh {
   nama: string
   jenisKelamin: 'LAKI_LAKI' | 'PEREMPUAN'
-  usia: number
+  usia: OpsiUsia
   tinggi: number
   berat: number
-  masaKerja: number
-  durasi: number
-  unitKerja: string
+  masaKerja: OpsiMasaKerja
+  durasi: OpsiDurasiKomputer
+  divisi: string
+  jabatan: string
+  /** Sub-bagian/seksi — opsional, seperti di form */
+  unitKerja: string | null
   merokok: boolean
   olahraga: number | null
   riwayat: boolean
@@ -39,20 +56,26 @@ interface Contoh {
 
 const DATA: Contoh[] = [
   {
-    nama: 'Ahmad Riyadi', jenisKelamin: 'LAKI_LAKI', usia: 27, tinggi: 172, berat: 64,
-    masaKerja: 3, durasi: 8, unitKerja: 'Keuangan', merokok: true, olahraga: 2, riwayat: false,
+    nama: 'Ahmad Riyadi', jenisKelamin: 'LAKI_LAKI', usia: '23-28 Thn', tinggi: 172, berat: 64,
+    masaKerja: '< 5 Thn', durasi: '> 6 Jam',
+    divisi: 'Keuangan & Akuntansi', jabatan: 'Staf / Pelaksana', unitKerja: 'Seksi Pajak',
+    merokok: true, olahraga: 2, riwayat: false,
     keluhan: { LEHER_ATAS: [2, 2, 1], BAHU_KANAN: [1, 2, 1] },
     sus: [4, 2, 5, 1, 4, 2, 5, 2, 4, 3],
   },
   {
-    nama: 'Siti Aminah', jenisKelamin: 'PEREMPUAN', usia: 34, tinggi: 156, berat: 68,
-    masaKerja: 8, durasi: 9, unitKerja: 'Administrasi', merokok: false, olahraga: null, riwayat: true,
+    nama: 'Siti Aminah', jenisKelamin: 'PEREMPUAN', usia: '29-34 Thn', tinggi: 156, berat: 68,
+    masaKerja: '> 5 Thn', durasi: '> 6 Jam',
+    divisi: 'Administrasi & Umum', jabatan: 'Supervisor / Koordinator', unitKerja: null,
+    merokok: false, olahraga: null, riwayat: true,
     keluhan: { LEHER_ATAS: [3, 3, 2], LEHER_BAWAH: [3, 2, 2], PUNGGUNG: [2, 2, 2], PINGGANG: [3, 3, 3] },
     sus: [5, 1, 5, 1, 4, 2, 4, 2, 5, 2],
   },
   {
-    nama: 'Budi Hartono', jenisKelamin: 'LAKI_LAKI', usia: 45, tinggi: 168, berat: 88,
-    masaKerja: 18, durasi: 10, unitKerja: 'Produksi', merokok: true, olahraga: null, riwayat: true,
+    nama: 'Budi Hartono', jenisKelamin: 'LAKI_LAKI', usia: '41-46 Thn', tinggi: 168, berat: 88,
+    masaKerja: '> 10 Thn', durasi: '> 6 Jam',
+    divisi: 'Produksi / Operasional', jabatan: 'Kepala Seksi / Manajer', unitKerja: null,
+    merokok: true, olahraga: null, riwayat: true,
     keluhan: {
       LEHER_ATAS: [3, 3, 3], LEHER_BAWAH: [3, 3, 2], BAHU_KIRI: [2, 2, 2], BAHU_KANAN: [3, 3, 2],
       PUNGGUNG: [3, 3, 3], PINGGANG: [3, 3, 3], BOKONG: [2, 2, 1], PANTAT: [3, 2, 2],
@@ -61,14 +84,18 @@ const DATA: Contoh[] = [
     sus: [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
   },
   {
-    nama: 'Dewi Lestari', jenisKelamin: 'PEREMPUAN', usia: 29, tinggi: 160, berat: 50,
-    masaKerja: 4, durasi: 7, unitKerja: 'Pemasaran', merokok: false, olahraga: 4, riwayat: false,
+    nama: 'Dewi Lestari', jenisKelamin: 'PEREMPUAN', usia: '29-34 Thn', tinggi: 160, berat: 50,
+    masaKerja: '< 5 Thn', durasi: '> 6 Jam',
+    divisi: 'Pemasaran & Penjualan', jabatan: 'Staf / Pelaksana', unitKerja: null,
+    merokok: false, olahraga: 4, riwayat: false,
     keluhan: { LEHER_ATAS: [1, 1, 1] },
     sus: [4, 2, 4, 2, 4, 2, 5, 1, 4, 2],
   },
   {
-    nama: 'Eko Prasetyo', jenisKelamin: 'LAKI_LAKI', usia: 52, tinggi: 170, berat: 79,
-    masaKerja: 25, durasi: 9, unitKerja: 'Produksi', merokok: true, olahraga: 1, riwayat: true,
+    nama: 'Eko Prasetyo', jenisKelamin: 'LAKI_LAKI', usia: '47-52 Thn', tinggi: 170, berat: 79,
+    masaKerja: '> 10 Thn', durasi: '> 6 Jam',
+    divisi: 'Produksi / Operasional', jabatan: 'Kepala Bagian / Direksi', unitKerja: null,
+    merokok: true, olahraga: 1, riwayat: true,
     keluhan: {
       PINGGANG: [3, 3, 3], PUNGGUNG: [3, 2, 2], LUTUT_KIRI: [2, 2, 2], LUTUT_KANAN: [3, 3, 2],
       BETIS_KIRI: [2, 1, 1], BETIS_KANAN: [2, 2, 1], LEHER_BAWAH: [2, 2, 2],
@@ -76,38 +103,50 @@ const DATA: Contoh[] = [
     sus: [2, 4, 3, 4, 2, 3, 3, 4, 2, 4],
   },
   {
-    nama: 'Fitri Handayani', jenisKelamin: 'PEREMPUAN', usia: 38, tinggi: 158, berat: 45,
-    masaKerja: 12, durasi: 6, unitKerja: 'Administrasi', merokok: false, olahraga: 5, riwayat: false,
+    nama: 'Fitri Handayani', jenisKelamin: 'PEREMPUAN', usia: '35-40 Thn', tinggi: 158, berat: 45,
+    masaKerja: '> 10 Thn', durasi: '< 6 Jam',
+    divisi: 'Administrasi & Umum', jabatan: 'Staf / Pelaksana', unitKerja: 'Seksi Arsip',
+    merokok: false, olahraga: 5, riwayat: false,
     keluhan: {},
     sus: [5, 1, 5, 2, 5, 1, 5, 1, 5, 1],
   },
   {
-    nama: 'Gunawan Saputra', jenisKelamin: 'LAKI_LAKI', usia: 31, tinggi: 175, berat: 72,
-    masaKerja: 6, durasi: 8, unitKerja: 'Teknologi Informasi', merokok: false, olahraga: 3, riwayat: false,
+    nama: 'Gunawan Saputra', jenisKelamin: 'LAKI_LAKI', usia: '29-34 Thn', tinggi: 175, berat: 72,
+    masaKerja: '> 5 Thn', durasi: '> 6 Jam',
+    divisi: 'Teknologi Informasi', jabatan: 'Supervisor / Koordinator', unitKerja: null,
+    merokok: false, olahraga: 3, riwayat: false,
     keluhan: { PERGELANGAN_TANGAN_KANAN: [3, 2, 2], TANGAN_KANAN: [2, 2, 1], LEHER_ATAS: [2, 1, 1] },
     sus: [4, 3, 4, 2, 4, 2, 4, 2, 4, 3],
   },
   {
-    nama: 'Hesti Wulandari', jenisKelamin: 'PEREMPUAN', usia: 24, tinggi: 163, berat: 55,
-    masaKerja: 1, durasi: 8, unitKerja: 'Teknologi Informasi', merokok: false, olahraga: 2, riwayat: false,
+    nama: 'Hesti Wulandari', jenisKelamin: 'PEREMPUAN', usia: '23-28 Thn', tinggi: 163, berat: 55,
+    masaKerja: '< 5 Thn', durasi: '> 6 Jam',
+    divisi: 'Teknologi Informasi', jabatan: 'Staf / Pelaksana', unitKerja: null,
+    merokok: false, olahraga: 2, riwayat: false,
     keluhan: { LEHER_ATAS: [2, 2, 1], BAHU_KIRI: [1, 1, 1] },
     sus: [3, 3, 4, 3, 3, 3, 4, 3, 3, 3],
   },
   {
-    nama: 'Irfan Maulana', jenisKelamin: 'LAKI_LAKI', usia: 41, tinggi: 166, berat: 76,
-    masaKerja: 15, durasi: 10, unitKerja: 'Keuangan', merokok: true, olahraga: null, riwayat: false,
+    nama: 'Irfan Maulana', jenisKelamin: 'LAKI_LAKI', usia: '41-46 Thn', tinggi: 166, berat: 76,
+    masaKerja: '> 10 Thn', durasi: '> 6 Jam',
+    divisi: 'Keuangan & Akuntansi', jabatan: 'Kepala Seksi / Manajer', unitKerja: null,
+    merokok: true, olahraga: null, riwayat: false,
     keluhan: { PINGGANG: [2, 2, 2], PUNGGUNG: [2, 2, 1], BAHU_KANAN: [2, 2, 2], LEHER_BAWAH: [3, 2, 2] },
     sus: [4, 2, 4, 2, 3, 3, 4, 2, 4, 3],
   },
   {
-    nama: 'Julia Ramadhani', jenisKelamin: 'PEREMPUAN', usia: 26, tinggi: 165, berat: 46,
-    masaKerja: 2, durasi: 7, unitKerja: 'Pemasaran', merokok: false, olahraga: 3, riwayat: false,
+    nama: 'Julia Ramadhani', jenisKelamin: 'PEREMPUAN', usia: '23-28 Thn', tinggi: 165, berat: 46,
+    masaKerja: '< 5 Thn', durasi: '> 6 Jam',
+    divisi: 'Pemasaran & Penjualan', jabatan: 'Staf / Pelaksana', unitKerja: null,
+    merokok: false, olahraga: 3, riwayat: false,
     keluhan: { LEHER_ATAS: [1, 2, 1] },
     sus: [5, 2, 4, 1, 5, 1, 5, 2, 4, 2],
   },
   {
-    nama: 'Kurnia Adi', jenisKelamin: 'LAKI_LAKI', usia: 36, tinggi: 178, berat: 95,
-    masaKerja: 11, durasi: 11, unitKerja: 'Produksi', merokok: true, olahraga: null, riwayat: true,
+    nama: 'Kurnia Adi', jenisKelamin: 'LAKI_LAKI', usia: '35-40 Thn', tinggi: 178, berat: 95,
+    masaKerja: '> 10 Thn', durasi: '> 6 Jam',
+    divisi: 'Logistik & Pengadaan', jabatan: 'Supervisor / Koordinator', unitKerja: 'Gudang Bahan Baku',
+    merokok: true, olahraga: null, riwayat: true,
     keluhan: {
       PINGGANG: [3, 3, 3], BOKONG: [3, 2, 2], PANTAT: [3, 3, 2], PUNGGUNG: [3, 3, 2],
       LEHER_ATAS: [2, 2, 2], LEHER_BAWAH: [3, 2, 2], PAHA_KIRI: [2, 1, 1], PAHA_KANAN: [2, 2, 1],
@@ -116,8 +155,11 @@ const DATA: Contoh[] = [
     sus: [3, 4, 3, 3, 3, 4, 3, 3, 2, 4],
   },
   {
-    nama: 'Lina Marlina', jenisKelamin: 'PEREMPUAN', usia: 47, tinggi: 154, berat: 65,
-    masaKerja: 20, durasi: 8, unitKerja: 'Administrasi', merokok: false, olahraga: 1, riwayat: true,
+    nama: 'Lina Marlina', jenisKelamin: 'PEREMPUAN', usia: '47-52 Thn', tinggi: 154, berat: 65,
+    masaKerja: '> 10 Thn', durasi: '> 6 Jam',
+    // Nilai di luar `OPSI_DIVISI` — meniru responden yang memilih "Lainnya".
+    divisi: 'Perpustakaan', jabatan: 'Staf / Pelaksana', unitKerja: null,
+    merokok: false, olahraga: 1, riwayat: true,
     keluhan: {
       LEHER_ATAS: [3, 2, 2], BAHU_KIRI: [2, 2, 2], BAHU_KANAN: [3, 3, 2],
       PERGELANGAN_TANGAN_KANAN: [2, 2, 2], PINGGANG: [2, 2, 1],
@@ -177,11 +219,13 @@ async function buat() {
         passwordHash,
         setujuEtik: true,
         tanggalPersetujuan: new Date(),
-        unitKerja: c.unitKerja,
         usia: c.usia,
         jenisKelamin: c.jenisKelamin,
-        masaKerjaTahun: new Prisma.Decimal(c.masaKerja),
-        durasiKomputerJamPerHari: new Prisma.Decimal(c.durasi),
+        divisi: c.divisi,
+        jabatan: c.jabatan,
+        unitKerja: c.unitKerja,
+        masaKerjaTahun: c.masaKerja,
+        durasiKomputerJamPerHari: c.durasi,
         tinggiBadanCm: new Prisma.Decimal(c.tinggi),
         beratBadanKg: new Prisma.Decimal(c.berat),
         imt: new Prisma.Decimal(imt.imt),

@@ -10,6 +10,7 @@ import { LABEL_REGIO, type RegioTubuh } from '~~/lib/cmdq/segmen'
 import { kategorikanSkorSegmen } from '~~/lib/cmdq/skoring'
 import { LABEL_INTERPRETASI, TARGET_SUS } from '~~/lib/sus/skoring'
 import { susunRekomendasi } from '~~/lib/rekomendasi'
+import { jamKomputerRepresentatif } from '~~/lib/sosiodemografi'
 
 /**
  * GET /api/ringkasan — Langkah 6 alur responden: laporan akhir.
@@ -68,12 +69,14 @@ export default defineEventHandler(async (event) => {
   ] as RegioTubuh[]
 
   const skorTotal = responden.cmdqHasil.skorTotal.toNumber()
-  const durasi = responden.durasiKomputerJamPerHari?.toNumber() ?? null
+  // Kategori teks ("< 6 Jam"), bukan angka — lihat `lib/sosiodemografi.ts`.
+  const durasi = responden.durasiKomputerJamPerHari ?? null
 
   const rekomendasi = susunRekomendasi({
     kategoriRisiko: responden.cmdqHasil.kategoriRisiko,
     regioBermasalah,
-    durasiKomputerJamPerHari: durasi,
+    durasiKomputerJamPerHari: jamKomputerRepresentatif(durasi),
+    durasiKomputerLabel: durasi,
     kategoriImt: responden.kategoriImt,
     olahraga: responden.olahraga,
     // Dua masukan di bawah memicu rujukan tenaga kesehatan langsung dari data

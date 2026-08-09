@@ -36,9 +36,11 @@ export default defineEventHandler(async (event) => {
         kodeResponden: true,
         nama: true,
         email: true,
-        unitKerja: true,
         usia: true,
         jenisKelamin: true,
+        divisi: true,
+        jabatan: true,
+        unitKerja: true,
         masaKerjaTahun: true,
         durasiKomputerJamPerHari: true,
         imt: true,
@@ -78,13 +80,16 @@ export default defineEventHandler(async (event) => {
       kodeResponden: r.kodeResponden,
       nama: r.nama,
       email: r.email,
-      unitKerja: r.unitKerja,
       usia: r.usia,
       jenisKelamin: r.jenisKelamin,
+      divisi: r.divisi,
+      jabatan: r.jabatan,
+      unitKerja: r.unitKerja,
       // Kolom profil bernilai null selama responden belum menyelesaikan
       // langkah 2 — dashboard menampilkannya sebagai "—".
-      masaKerjaTahun: r.masaKerjaTahun?.toNumber() ?? null,
-      durasiKomputerJamPerHari: r.durasiKomputerJamPerHari?.toNumber() ?? null,
+      // Kategori teks, bukan angka — lihat `lib/sosiodemografi.ts`.
+      masaKerjaTahun: r.masaKerjaTahun,
+      durasiKomputerJamPerHari: r.durasiKomputerJamPerHari,
       imt: r.imt?.toNumber() ?? null,
       kategoriImt: r.kategoriImt,
       labelKategoriImt: r.kategoriImt

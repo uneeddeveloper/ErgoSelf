@@ -175,7 +175,9 @@ const tahapSekarang = computed(() => {
         >
           <div>
             <dt class="text-[11px] text-ink-500">Usia</dt>
-            <dd class="text-sm font-bold text-ink">{{ profil.usia }} tahun</dd>
+            <!-- Label sudah memuat satuannya sendiri ("23-28 Thn"); menambah
+                 kata "tahun" di sini menghasilkan "23-28 Thn tahun". -->
+            <dd class="text-sm font-bold text-ink">{{ profil.usia ?? '—' }}</dd>
           </div>
           <div>
             <dt class="text-[11px] text-ink-500">Jenis kelamin</dt>
@@ -190,7 +192,7 @@ const tahapSekarang = computed(() => {
           <div>
             <dt class="text-[11px] text-ink-500">Pakai komputer</dt>
             <dd class="text-sm font-bold text-ink">
-              {{ profil.durasiKomputerJamPerHari }} jam/hari
+              {{ profil.durasiKomputerJamPerHari ?? '—' }}
             </dd>
           </div>
         </dl>

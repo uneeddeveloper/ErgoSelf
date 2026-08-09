@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { WARNA } from '~~/lib/viz'
 import { LABEL_REGIO } from '~~/lib/cmdq/segmen'
+import { OPSI_DIVISI, OPSI_JABATAN, OPSI_USIA } from '~~/lib/sosiodemografi'
 
 /**
  * Dashboard peneliti — mengikuti mockup layar 08.
@@ -14,8 +15,14 @@ useHead({ title: 'Dashboard Peneliti — ErgoSelf' })
 
 const filter = reactive({
   jenisKelamin: '',
-  usiaMin: '',
-  usiaMaks: '',
+  /**
+   * Kategori rentang, bukan angka minimum/maksimum. Sebelumnya berupa dua
+   * kotak angka yang diteruskan sebagai `usiaMin`/`usiaMaks` — pembandingan
+   * yang tidak lagi punya arti sejak usia disimpan sebagai label rentang.
+   */
+  usia: '',
+  divisi: '',
+  jabatan: '',
   kategoriImt: '',
   statusProfil: '',
   cari: '',
@@ -107,8 +114,9 @@ function unduh(format: 'xlsx' | 'csv') {
 function aturUlang() {
   Object.assign(filter, {
     jenisKelamin: '',
-    usiaMin: '',
-    usiaMaks: '',
+    usia: '',
+    divisi: '',
+    jabatan: '',
     kategoriImt: '',
     statusProfil: '',
     cari: '',
@@ -233,28 +241,27 @@ function progresPersen(r: {
       </div>
 
       <div>
-        <span :class="kelasLabelFilter">Rentang Usia</span>
-        <div class="mt-1.5 flex items-center gap-2">
-          <input
-            v-model="filter.usiaMin"
-            type="number"
-            min="17"
-            max="70"
-            placeholder="Min"
-            aria-label="Usia minimum"
-            class="min-h-11 w-full rounded-input border border-garis-kuat bg-white px-3 text-sm outline-none focus:border-brand-600"
-          />
-          <span class="text-ink-400">–</span>
-          <input
-            v-model="filter.usiaMaks"
-            type="number"
-            min="17"
-            max="70"
-            placeholder="Maks"
-            aria-label="Usia maksimum"
-            class="min-h-11 w-full rounded-input border border-garis-kuat bg-white px-3 text-sm outline-none focus:border-brand-600"
-          />
-        </div>
+        <label :class="kelasLabelFilter" for="f-usia">Kelompok Usia</label>
+        <select id="f-usia" v-model="filter.usia" :class="kelasPilih">
+          <option value="">Semua Usia</option>
+          <option v-for="o in OPSI_USIA" :key="o" :value="o">{{ o }}</option>
+        </select>
+      </div>
+
+      <div>
+        <label :class="kelasLabelFilter" for="f-divisi">Divisi</label>
+        <select id="f-divisi" v-model="filter.divisi" :class="kelasPilih">
+          <option value="">Semua Divisi</option>
+          <option v-for="o in OPSI_DIVISI" :key="o" :value="o">{{ o }}</option>
+        </select>
+      </div>
+
+      <div>
+        <label :class="kelasLabelFilter" for="f-jabatan">Jabatan</label>
+        <select id="f-jabatan" v-model="filter.jabatan" :class="kelasPilih">
+          <option value="">Semua Jabatan</option>
+          <option v-for="o in OPSI_JABATAN" :key="o" :value="o">{{ o }}</option>
+        </select>
       </div>
 
       <div>
@@ -280,10 +287,12 @@ function progresPersen(r: {
     </section>
 
     <div class="flex flex-wrap items-center gap-3">
+      <!-- Satu-satunya jalan menyaring divisi/jabatan hasil isian "Lainnya":
+           daftar pilihan di atas hanya memuat kategori baku. -->
       <input
         v-model="filter.cari"
         type="search"
-        placeholder="Cari nama, kode, atau unit kerja…"
+        placeholder="Cari nama, kode, divisi, jabatan, atau sub-bagian…"
         class="min-h-11 flex-1 rounded-input border border-garis-kuat bg-white px-3.5 text-sm outline-none focus:border-brand-600"
       />
       <button
@@ -451,6 +460,7 @@ function progresPersen(r: {
             <tr class="border-b border-garis text-[11px] tracking-wider text-ink-500 uppercase">
               <th scope="col" class="pb-2.5 font-bold">Kode</th>
               <th scope="col" class="pb-2.5 font-bold">Demografi</th>
+              <th scope="col" class="pb-2.5 font-bold">Divisi / Jabatan</th>
               <th scope="col" class="pb-2.5 font-bold">CMDQ</th>
               <th scope="col" class="pb-2.5 font-bold">SUS</th>
               <th scope="col" class="pb-2.5 font-bold">Progres</th>
@@ -470,7 +480,7 @@ function progresPersen(r: {
                 <template v-if="b.statusProfil === 'SELESAI'">
                   <span class="font-semibold text-ink-700">
                     {{ b.jenisKelamin === 'LAKI_LAKI' ? 'Laki-laki' : 'Perempuan' }},
-                    {{ b.usia }} th
+                    {{ b.usia ?? '—' }}
                   </span>
                   <span class="block text-xs text-ink-500">
                     IMT {{ b.imt }} · {{ b.labelKategoriImt }}
@@ -478,6 +488,13 @@ function progresPersen(r: {
                 </template>
                 <span v-else class="lencana bg-panel text-ink-600">
                   Profil belum diisi
+                </span>
+              </td>
+              <td class="py-3.5">
+                <span class="font-semibold text-ink-700">{{ b.divisi ?? '—' }}</span>
+                <span class="block text-xs text-ink-500">
+                  {{ b.jabatan ?? '—' }}
+                  <template v-if="b.unitKerja"> · {{ b.unitKerja }}</template>
                 </span>
               </td>
               <td class="py-3.5">
