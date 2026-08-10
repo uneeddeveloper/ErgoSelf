@@ -6,7 +6,9 @@ const route = useRoute()
 const { fetch: muatSesi } = useUserSession()
 
 const form = reactive({ email: '', password: '' })
-const galat = ref('')
+const galat = ref(
+  route.query.galat === 'google' ? 'Gagal masuk dengan Google. Silakan coba lagi.' : '',
+)
 const mengirim = ref(false)
 const lihatSandi = ref(false)
 
