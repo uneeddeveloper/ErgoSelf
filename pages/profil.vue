@@ -7,28 +7,38 @@ import {
 } from '~~/lib/validasi/responden'
 import { nomorTahap } from '~~/lib/alur'
 import { OPSI_YA_TIDAK } from '~~/types/ui'
+import {
+  NILAI_LAINNYA,
+  OPSI_DIVISI,
+  OPSI_DURASI_KOMPUTER,
+  OPSI_JABATAN,
+  OPSI_JENIS_KELAMIN,
+  OPSI_MASA_KERJA,
+  OPSI_USIA,
+  PILIHAN_DIVISI,
+  PILIHAN_JABATAN,
+} from '~~/lib/sosiodemografi'
 
 /**
- * Langkah 2 alur responden — Profil Pekerja (mockup layar 02).
+ * Langkah 2 alur responden — Data Sosiodemografis (mockup layar 02).
  */
 definePageMeta({ middleware: 'responden' })
-useHead({ title: 'Profil Pekerja — ErgoSelf' })
+useHead({ title: 'Data Sosiodemografis — ErgoSelf' })
 
 const { data: profil } = await useFetch('/api/responden/saya')
 
-// Opsi Pilihan Rentang Kategori
-const opsiUsia = ['17-22 Thn', '23-28 Thn', '29-34 Thn', '35-40 Thn', '41-46 Thn', '47-52 Thn', '> 52 Thn']
-const opsiMasaKerja = ['< 5 Thn', '> 5 Thn', '> 10 Thn']
-const opsiDurasiKomputer = ['< 6 Jam', '> 6 Jam']
-const opsiJenisKelamin = [
-  { nilai: 'LAKI_LAKI', label: 'Laki-laki' },
-  { nilai: 'PEREMPUAN', label: 'Perempuan' },
-]
-
 const form = reactive({
-  unitKerja: '',
   usia: '',
   jenisKelamin: undefined as 'LAKI_LAKI' | 'PEREMPUAN' | undefined,
+  /**
+   * Tombol yang sedang aktif — bisa bernilai `NILAI_LAINNYA`. Nilai yang
+   * benar-benar dikirim ke server dihitung oleh `divisiFinal`/`jabatanFinal`.
+   */
+  divisiPilihan: '',
+  divisiLainnya: '',
+  jabatanPilihan: '',
+  jabatanLainnya: '',
+  unitKerja: '',
   masaKerjaTahun: '',
   durasiKomputerJamPerHari: '',
   tinggiBadanCm: '',
@@ -40,15 +50,54 @@ const form = reactive({
   keteranganRiwayatMsds: '',
 })
 
+/**
+ * Nilai yang benar-benar dikirim ke server: label dari daftar, atau teks yang
+ * diketik responden bila ia memilih "Lainnya".
+ *
+ * Yang tersimpan tidak pernah berupa kata "Lainnya" — lihat alasannya di
+ * `lib/sosiodemografi.ts`. Bila kolom teksnya masih kosong, nilainya dibiarkan
+ * `NILAI_LAINNYA` supaya validasi menolaknya dengan pesan yang menunjuk ke
+ * kolom itu, bukan mengirim string kosong dengan pesan "wajib dipilih" yang
+ * membingungkan karena responden merasa sudah memilih.
+ */
+const divisiFinal = computed(() =>
+  form.divisiPilihan === NILAI_LAINNYA
+    ? form.divisiLainnya.trim() || NILAI_LAINNYA
+    : form.divisiPilihan,
+)
+const jabatanFinal = computed(() =>
+  form.jabatanPilihan === NILAI_LAINNYA
+    ? form.jabatanLainnya.trim() || NILAI_LAINNYA
+    : form.jabatanPilihan,
+)
+
+/**
+ * Memulihkan keadaan tombol dari satu nilai tersimpan: nilai yang ada di
+ * daftar menyalakan tombolnya, nilai lain berarti responden dulu memakai
+ * "Lainnya" sehingga tombol itu yang menyala dan teksnya dikembalikan.
+ */
+function pulihkanPilihan(tersimpan: string | null | undefined, daftar: readonly string[]) {
+  if (!tersimpan) return { pilihan: '', lainnya: '' }
+  return daftar.includes(tersimpan)
+    ? { pilihan: tersimpan, lainnya: '' }
+    : { pilihan: NILAI_LAINNYA, lainnya: tersimpan }
+}
+
 // Isi ulang bila responden kembali untuk mengoreksi profilnya.
 watch(
   profil,
   (p) => {
     if (!p || p.statusProfil !== 'SELESAI') return
+    const divisi = pulihkanPilihan(p.divisi, OPSI_DIVISI)
+    const jabatan = pulihkanPilihan(p.jabatan, OPSI_JABATAN)
     Object.assign(form, {
-      unitKerja: p.unitKerja ?? '',
       usia: p.usia ?? '',
       jenisKelamin: p.jenisKelamin ?? undefined,
+      divisiPilihan: divisi.pilihan,
+      divisiLainnya: divisi.lainnya,
+      jabatanPilihan: jabatan.pilihan,
+      jabatanLainnya: jabatan.lainnya,
+      unitKerja: p.unitKerja ?? '',
       masaKerjaTahun: p.masaKerjaTahun ?? '',
       durasiKomputerJamPerHari: p.durasiKomputerJamPerHari ?? '',
       tinggiBadanCm: String(p.tinggiBadanCm ?? ''),
@@ -96,6 +145,8 @@ async function kirim() {
 
   const cek = skemaProfilResponden.safeParse({
     ...form,
+    divisi: divisiFinal.value,
+    jabatan: jabatanFinal.value,
     frekuensiOlahragaPerMinggu: form.olahraga
       ? form.frekuensiOlahragaPerMinggu
       : undefined,
@@ -141,7 +192,7 @@ function kelasFor(field: string) {
 
 <template>
   <div class="space-y-4">
-    <UiProgres :tahap="nomorTahap('PROFIL')" keterangan="Profil pekerja" />
+    <UiProgres :tahap="nomorTahap('PROFIL')" keterangan="Data sosiodemografis" />
 
     <header class="rounded-kartu bg-brand-150 p-5">
       <h1 class="text-lg font-extrabold text-brand-800">
@@ -167,9 +218,15 @@ function kelasFor(field: string) {
     </p>
 
     <form class="space-y-4" novalidate @submit.prevent="kirim">
-      <!-- Informasi pribadi -->
+      <!--
+        Data sosiodemografis — karakteristik individu dan okupasional dalam
+        satu seksi. Keduanya digabung karena memang satu kelompok variabel:
+        usia dan jenis kelamin sama sosiodemografisnya dengan divisi dan
+        jabatan, dan di Bab IV ketiganya sama-sama menjadi variabel yang
+        ditabulasi-silang dengan skor CMDQ.
+      -->
       <fieldset class="kartu space-y-4 p-4">
-        <legend class="label-seksi float-none flex items-center gap-1.5"><UiIkon nama="profil" :ukuran="16" /> Informasi Pribadi</legend>
+        <legend class="label-seksi float-none flex items-center gap-1.5"><UiIkon nama="profil" :ukuran="16" /> Data Sosiodemografis</legend>
 
         <UiKolom label="Nama / Kode Responden">
           <input
@@ -181,33 +238,21 @@ function kelasFor(field: string) {
         </UiKolom>
 
         <div class="grid gap-4 sm:grid-cols-2">
-          <!-- Usia (Grid Pilihan) -->
           <UiKolom
             label="Usia (Tahun)"
             wajib
             :galat="galat.usia"
             :data-galat="!!galat.usia"
           >
-            <div class="grid grid-cols-3 gap-2 mt-1">
-              <button
-                v-for="item in opsiUsia"
-                :key="item"
-                type="button"
-                :class="[
-                  'rounded-lg border py-2 text-xs font-semibold transition',
-                  form.usia === item 
-                    ? 'border-brand-600 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20' 
-                    : 'border-garis bg-white text-ink hover:bg-gray-50',
-                  galat.usia ? 'border-risiko-tinggi' : ''
-                ]"
-                @click="form.usia = item; bersihkanGalat('usia')"
-              >
-                {{ item }}
-              </button>
-            </div>
+            <UiPilihanKotak
+              v-model="form.usia"
+              nama="usia"
+              :opsi="OPSI_USIA"
+              :galat="!!galat.usia"
+              @update:model-value="bersihkanGalat('usia')"
+            />
           </UiKolom>
 
-          <!-- Jenis Kelamin (Grid Pilihan) -->
           <UiKolom
             label="Jenis kelamin"
             wajib
@@ -218,7 +263,7 @@ function kelasFor(field: string) {
               v-model="form.jenisKelamin"
               nama="jenisKelamin"
               tata="padat"
-              :opsi="opsiJenisKelamin"
+              :opsi="OPSI_JENIS_KELAMIN"
               :galat="!!galat.jenisKelamin"
               @update:model-value="bersihkanGalat('jenisKelamin')"
             />
@@ -226,76 +271,100 @@ function kelasFor(field: string) {
         </div>
 
         <UiKolom
-          label="Unit kerja / bagian"
+          label="Divisi"
+          wajib
+          :galat="galat.divisi"
+          :data-galat="!!galat.divisi"
+        >
+          <UiPilihanKotak
+            v-model="form.divisiPilihan"
+            nama="divisi"
+            :kolom="2"
+            :opsi="PILIHAN_DIVISI"
+            :galat="!!galat.divisi"
+            @update:model-value="bersihkanGalat('divisi')"
+          />
+          <input
+            v-if="form.divisiPilihan === NILAI_LAINNYA"
+            v-model="form.divisiLainnya"
+            type="text"
+            placeholder="Tuliskan nama divisi Anda"
+            aria-label="Nama divisi lainnya"
+            :class="[...kelasFor('divisi'), 'mt-2']"
+            @input="bersihkanGalat('divisi')"
+          />
+        </UiKolom>
+
+        <UiKolom
+          label="Jabatan"
+          wajib
+          :galat="galat.jabatan"
+          :data-galat="!!galat.jabatan"
+        >
+          <UiPilihanKotak
+            v-model="form.jabatanPilihan"
+            nama="jabatan"
+            :kolom="2"
+            :opsi="PILIHAN_JABATAN"
+            :galat="!!galat.jabatan"
+            @update:model-value="bersihkanGalat('jabatan')"
+          />
+          <input
+            v-if="form.jabatanPilihan === NILAI_LAINNYA"
+            v-model="form.jabatanLainnya"
+            type="text"
+            placeholder="Tuliskan jabatan Anda"
+            aria-label="Jabatan lainnya"
+            :class="[...kelasFor('jabatan'), 'mt-2']"
+            @input="bersihkanGalat('jabatan')"
+          />
+        </UiKolom>
+
+        <UiKolom
+          label="Sub-bagian / seksi"
           untuk="unitKerja"
-          petunjuk="Opsional"
+          petunjuk="Opsional — lebih rinci dari divisi, mis. Seksi Pajak"
           :galat="galat.unitKerja"
         >
           <input
             id="unitKerja"
             v-model="form.unitKerja"
             type="text"
-            placeholder="Contoh: Keuangan"
+            placeholder="Contoh: Seksi Pajak"
             :class="kelasFor('unitKerja')"
             @input="bersihkanGalat('unitKerja')"
           />
         </UiKolom>
-      </fieldset>
 
-      <!-- Informasi pekerjaan -->
-      <fieldset class="kartu space-y-4 p-4">
-        <legend class="label-seksi float-none flex items-center gap-1.5"><UiIkon nama="pekerjaan" :ukuran="16" /> Informasi Pekerjaan</legend>
-
-        <!-- Masa Kerja -->
         <UiKolom
           label="Masa Kerja (Tahun)"
           wajib
           :galat="galat.masaKerjaTahun"
           :data-galat="!!galat.masaKerjaTahun"
         >
-          <div class="grid grid-cols-3 gap-2 mt-1">
-            <button
-              v-for="item in opsiMasaKerja"
-              :key="item"
-              type="button"
-              :class="[
-                'rounded-lg border py-2.5 text-xs font-semibold transition',
-                form.masaKerjaTahun === item 
-                  ? 'border-brand-600 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20' 
-                  : 'border-garis bg-white text-ink hover:bg-gray-50',
-                galat.masaKerjaTahun ? 'border-risiko-tinggi' : ''
-              ]"
-              @click="form.masaKerjaTahun = item; bersihkanGalat('masaKerjaTahun')"
-            >
-              {{ item }}
-            </button>
-          </div>
+          <UiPilihanKotak
+            v-model="form.masaKerjaTahun"
+            nama="masaKerjaTahun"
+            :opsi="OPSI_MASA_KERJA"
+            :galat="!!galat.masaKerjaTahun"
+            @update:model-value="bersihkanGalat('masaKerjaTahun')"
+          />
         </UiKolom>
 
-        <!-- Durasi Penggunaan Komputer -->
         <UiKolom
           label="Durasi Penggunaan Komputer (Jam/Hari)"
           wajib
           :galat="galat.durasiKomputerJamPerHari"
           :data-galat="!!galat.durasiKomputerJamPerHari"
         >
-          <div class="grid grid-cols-2 gap-2 mt-1">
-            <button
-              v-for="item in opsiDurasiKomputer"
-              :key="item"
-              type="button"
-              :class="[
-                'rounded-lg border py-2.5 text-xs font-semibold transition',
-                form.durasiKomputerJamPerHari === item 
-                  ? 'border-brand-600 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20' 
-                  : 'border-garis bg-white text-ink hover:bg-gray-50',
-                galat.durasiKomputerJamPerHari ? 'border-risiko-tinggi' : ''
-              ]"
-              @click="form.durasiKomputerJamPerHari = item; bersihkanGalat('durasiKomputerJamPerHari')"
-            >
-              {{ item }}
-            </button>
-          </div>
+          <UiPilihanKotak
+            v-model="form.durasiKomputerJamPerHari"
+            nama="durasiKomputerJamPerHari"
+            :kolom="2"
+            :opsi="OPSI_DURASI_KOMPUTER"
+            :galat="!!galat.durasiKomputerJamPerHari"
+            @update:model-value="bersihkanGalat('durasiKomputerJamPerHari')"
+          />
         </UiKolom>
       </fieldset>
 

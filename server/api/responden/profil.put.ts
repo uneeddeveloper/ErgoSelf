@@ -3,8 +3,8 @@ import { evaluasiImt } from '~~/lib/imt'
 import { petaGalat, skemaProfilResponden } from '~~/lib/validasi/responden'
 
 /**
- * PUT /api/responden/profil — Langkah 2 alur responden: melengkapi profil
- * pekerja (demografi, karakteristik pekerjaan, antropometri, riwayat).
+ * PUT /api/responden/profil — Langkah 2 alur responden: melengkapi data
+ * sosiodemografis, antropometri, dan riwayat.
  *
  * IMT selalu dihitung ulang di server dari tinggi & berat yang dikirim;
  * nilai IMT dari klien diabaikan supaya angka yang tersimpan tidak bisa
@@ -40,9 +40,11 @@ export default defineEventHandler(async (event) => {
   const responden = await prisma.responden.update({
     where: { id: sesi.id },
     data: {
-      unitKerja: data.unitKerja ?? null,
       usia: data.usia,
       jenisKelamin: data.jenisKelamin,
+      divisi: data.divisi,
+      jabatan: data.jabatan,
+      unitKerja: data.unitKerja ?? null,
       masaKerjaTahun: data.masaKerjaTahun,
       durasiKomputerJamPerHari: data.durasiKomputerJamPerHari,
       tinggiBadanCm: new Prisma.Decimal(data.tinggiBadanCm),

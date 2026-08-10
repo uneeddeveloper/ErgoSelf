@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import type { Prisma } from '@prisma/client'
+import { OPSI_DIVISI, OPSI_JABATAN, OPSI_USIA } from '~~/lib/sosiodemografi'
 
 /**
  * Filter dashboard peneliti — dipakai bersama oleh endpoint rekapitulasi,
@@ -8,7 +9,9 @@ import type { Prisma } from '@prisma/client'
  *
  * Query string yang dikenali:
  *   ?jenisKelamin=LAKI_LAKI|PEREMPUAN
- *   ?usiaMin=20&usiaMaks=40
+ *   ?usia=23-28 Thn,29-34 Thn         (boleh lebih dari satu, dipisah koma)
+ *   ?divisi=Teknologi Informasi       (boleh lebih dari satu, dipisah koma)
+ *   ?jabatan=Staf / Pelaksana         (boleh lebih dari satu, dipisah koma)
  *   ?kategoriImt=NORMAL,OBESITAS      (boleh lebih dari satu, dipisah koma)
  *   ?statusProfil=SELESAI|BELUM
  *   ?statusCmdq=SELESAI|BELUM
@@ -38,10 +41,26 @@ const KATEGORI_IMT = [
 ] as const
 const STATUS = ['BELUM', 'BERLANGSUNG', 'SELESAI'] as const
 
-function angkaOpsional(nilai: unknown): number | undefined {
+/**
+ * Membaca parameter "boleh lebih dari satu, dipisah koma" dan MEMBUANG nilai
+ * yang tidak ada di daftar sah.
+ *
+ * Penyaringan terhadap daftar sah bukan sekadar kerapian: tanpa itu, siapa pun
+ * yang menyusun query string bisa menitipkan ribuan nilai ke klausa `IN` satu
+ * kueri. Nilai bebas yang diketik responden lewat pilihan "Lainnya" memang
+ * tidak bisa difilter dari sini — untuk itu tersedia kotak pencarian `?cari=`
+ * yang juga menyisir kolom divisi dan jabatan.
+ */
+function daftarValid<T extends readonly string[]>(
+  nilai: unknown,
+  daftar: T,
+): T[number][] | undefined {
   if (typeof nilai !== 'string' || nilai.trim() === '') return undefined
-  const angka = Number(nilai)
-  return Number.isFinite(angka) ? angka : undefined
+  const terpilih = nilai
+    .split(',')
+    .map((k) => k.trim())
+    .filter((k): k is T[number] => (daftar as readonly string[]).includes(k))
+  return terpilih.length > 0 ? terpilih : undefined
 }
 
 function pilihanValid<T extends readonly string[]>(
@@ -67,18 +86,14 @@ export function bacaFilter(event: H3Event): FilterDashboard {
   const statusProfil = pilihanValid(q.statusProfil, STATUS)
   const statusCmdq = pilihanValid(q.statusCmdq, STATUS)
   const statusSus = pilihanValid(q.statusSus, STATUS)
-  const usiaMin = angkaOpsional(q.usiaMin)
-  const usiaMaks = angkaOpsional(q.usiaMaks)
-
-  const kategoriImt =
-    typeof q.kategoriImt === 'string' && q.kategoriImt.trim() !== ''
-      ? q.kategoriImt
-          .split(',')
-          .map((k) => k.trim())
-          .filter((k): k is (typeof KATEGORI_IMT)[number] =>
-            (KATEGORI_IMT as readonly string[]).includes(k),
-          )
-      : undefined
+  // Usia adalah KATEGORI rentang ("23-28 Thn"), bukan angka. Sebelumnya
+  // parameter ini dibaca sebagai `usiaMin`/`usiaMaks` lalu dibandingkan dengan
+  // `gte`/`lte` — perbandingan yang pada kolom VARCHAR berjalan secara
+  // leksikografis, sehingga "> 52 Thn" terhitung lebih kecil dari "17-22 Thn".
+  const usia = daftarValid(q.usia, OPSI_USIA)
+  const divisi = daftarValid(q.divisi, OPSI_DIVISI)
+  const jabatan = daftarValid(q.jabatan, OPSI_JABATAN)
+  const kategoriImt = daftarValid(q.kategoriImt, KATEGORI_IMT)
 
   const cari =
     typeof q.cari === 'string' && q.cari.trim() !== '' ? q.cari.trim() : undefined
@@ -94,18 +109,16 @@ export function bacaFilter(event: H3Event): FilterDashboard {
   if (statusCmdq) where.statusCmdq = statusCmdq
   if (statusSus) where.statusSus = statusSus
   if (kategoriImt?.length) where.kategoriImt = { in: kategoriImt }
-
-  if (usiaMin !== undefined || usiaMaks !== undefined) {
-    where.usia = {
-      ...(usiaMin !== undefined ? { gte: usiaMin } : {}),
-      ...(usiaMaks !== undefined ? { lte: usiaMaks } : {}),
-    }
-  }
+  if (usia?.length) where.usia = { in: usia }
+  if (divisi?.length) where.divisi = { in: divisi }
+  if (jabatan?.length) where.jabatan = { in: jabatan }
 
   if (cari) {
     where.OR = [
       { nama: { contains: cari } },
       { kodeResponden: { contains: cari } },
+      { divisi: { contains: cari } },
+      { jabatan: { contains: cari } },
       { unitKerja: { contains: cari } },
     ]
   }
@@ -114,8 +127,9 @@ export function bacaFilter(event: H3Event): FilterDashboard {
     where,
     aktif: {
       jenisKelamin: jenisKelamin ?? null,
-      usiaMin: usiaMin ?? null,
-      usiaMaks: usiaMaks ?? null,
+      usia: usia ?? null,
+      divisi: divisi ?? null,
+      jabatan: jabatan ?? null,
       kategoriImt: kategoriImt ?? null,
       statusProfil: statusProfil ?? null,
       statusCmdq: statusCmdq ?? null,
