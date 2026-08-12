@@ -16,6 +16,7 @@
 import { z } from 'zod'
 import { BATAS_BERAT_KG, BATAS_TINGGI_CM } from '../imt'
 import {
+  MAKS_KARAKTER_SOSIODEMOGRAFI,
   NILAI_LAINNYA,
   OPSI_DURASI_KOMPUTER,
   OPSI_MASA_KERJA,
@@ -24,8 +25,9 @@ import {
 
 export const BATAS_FREKUENSI_OLAHRAGA = { min: 1, maks: 14 } as const
 
-/** Batas panjang teks bebas untuk divisi/jabatan pilihan "Lainnya". */
-export const MAKS_KARAKTER_SOSIODEMOGRAFI = 120
+// Batasnya kini tinggal di `lib/sosiodemografi.ts` karena dipakai juga oleh
+// CMS admin; diteruskan dari sini supaya pemanggil lama tidak perlu diubah.
+export { MAKS_KARAKTER_SOSIODEMOGRAFI }
 
 /** Helper universal untuk menangani data wajib diisi (string/boolean/angka) */
 const wajibDiisi = (pesan: string) =>

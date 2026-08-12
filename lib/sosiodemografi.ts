@@ -41,41 +41,29 @@ export const OPSI_JENIS_KELAMIN = [
 ] as const
 
 // ── Karakteristik okupasional ──────────────────────────────────────────────
+//
+// DIVISI & JABATAN TIDAK LAGI DIDEFINISIKAN DI SINI.
+//
+// Keduanya berpindah ke tabel `divisi` & `jabatan` yang dikelola peneliti lewat
+// panel admin (`/api/admin/master/...`), karena keduanya adalah satu-satunya
+// variabel sosiodemografis yang isinya bergantung pada lokasi penelitian.
+// Menyesuaikannya dengan struktur organisasi tempat penelitian dulu menuntut
+// perubahan kode dan penerapan ulang aplikasi.
+//
+// Sisanya SENGAJA tetap konstanta. Rentang usia, kategori masa kerja, dan
+// durasi penggunaan komputer adalah bagian dari rancangan penelitian yang
+// dijustifikasi di Bab III — bukan pengaturan operasional. Membukanya lewat
+// CMS berarti kategori bisa berubah di tengah pengumpulan data, dan responden
+// yang mengisi sebelum dan sesudah perubahan tidak lagi sebanding.
+//
+// Bentuk yang dipakai form responden: `GET /api/sosiodemografi`.
 
 /**
- * Divisi/departemen tempat responden bertugas.
- *
- * Daftar generik untuk perkantoran; sesuaikan dengan struktur organisasi di
- * lokasi penelitian sebelum pengumpulan data dimulai. Responden di luar daftar
- * memilih `NILAI_LAINNYA` lalu mengetik sendiri.
+ * Batas panjang teks untuk nama divisi/jabatan — berlaku baik untuk entri
+ * master yang diketik admin maupun teks bebas "Lainnya" yang diketik responden.
+ * Keduanya masuk ke kolom VARCHAR(120) yang sama.
  */
-export const OPSI_DIVISI = [
-  'Keuangan & Akuntansi',
-  'Sumber Daya Manusia (SDM)',
-  'Administrasi & Umum',
-  'Teknologi Informasi',
-  'Pemasaran & Penjualan',
-  'Produksi / Operasional',
-  'Logistik & Pengadaan',
-  'Hukum & Kepatuhan',
-  'Penelitian & Pengembangan',
-  'Layanan Pelanggan',
-] as const
-
-/**
- * Jenjang jabatan struktural.
- *
- * Sengaja berjenjang dan sedikit (4 tingkat), bukan daftar nama jabatan yang
- * panjang: tabulasi silang jabatan × kategori risiko membutuhkan sel yang
- * cukup terisi. Puluhan kategori dengan 1–2 responden per sel membuat uji
- * chi-square tidak sah.
- */
-export const OPSI_JABATAN = [
-  'Staf / Pelaksana',
-  'Supervisor / Koordinator',
-  'Kepala Seksi / Manajer',
-  'Kepala Bagian / Direksi',
-] as const
+export const MAKS_KARAKTER_SOSIODEMOGRAFI = 120
 
 export const OPSI_MASA_KERJA = ['< 5 Thn', '> 5 Thn', '> 10 Thn'] as const
 
@@ -94,9 +82,16 @@ export const OPSI_DURASI_KOMPUTER = ['< 6 Jam', '> 6 Jam'] as const
  */
 export const NILAI_LAINNYA = 'Lainnya'
 
-/** Daftar + penanda "Lainnya", bentuk yang digambar sebagai tombol di form. */
-export const PILIHAN_DIVISI = [...OPSI_DIVISI, NILAI_LAINNYA] as const
-export const PILIHAN_JABATAN = [...OPSI_JABATAN, NILAI_LAINNYA] as const
+/**
+ * Menambahkan penanda "Lainnya" ke daftar yang datang dari basis data.
+ *
+ * Penanda selalu di posisi TERAKHIR, bukan mengikuti kolom `urutan` master:
+ * ia bukan salah satu pilihan yang setara, melainkan jalan keluar bagi yang
+ * tidak menemukan pilihannya.
+ */
+export function denganLainnya(daftar: readonly string[]): string[] {
+  return [...daftar, NILAI_LAINNYA]
+}
 
 // ── Jembatan ke logika rekomendasi ─────────────────────────────────────────
 

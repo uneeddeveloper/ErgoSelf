@@ -1,7 +1,14 @@
 /**
  * Seed basis data:
- *   1. 28 segmen tubuh Nordic Body Map (master data, wajib ada)
- *   2. Satu akun admin/peneliti untuk mengakses dashboard
+ *   1. 18 item CMDQ (master data, wajib ada)
+ *   2. 12 area tangan CHDQ (master data, wajib ada)
+ *   3. Ambang kategori risiko awal (nilai sementara, menunggu tersil empiris)
+ *   4. Satu akun admin/peneliti untuk mengakses dashboard
+ *
+ * Divisi & jabatan TIDAK di-seed di sini: keduanya dikelola lewat panel admin
+ * dan isi awalnya sudah dimasukkan oleh migrasi
+ * `20260812000000_cmdq_cornell_chdq_dan_cms_divisi_jabatan`. Menyeed ulang di
+ * sini akan menghidupkan kembali entri yang sengaja dinonaktifkan peneliti.
  *
  * Jalankan dengan:  npm run db:seed
  * Aman dijalankan berulang kali (idempoten, memakai upsert).
@@ -10,6 +17,17 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { SEGMEN_TUBUH } from '../lib/cmdq/segmen'
+import {
+  AMBANG_TOTAL_SEDANG_SEMENTARA,
+  AMBANG_TOTAL_TINGGI_SEMENTARA,
+  PERSENTIL_AMBANG_SEDANG,
+  PERSENTIL_AMBANG_TINGGI,
+} from '../lib/cmdq/skala'
+import { AREA_TANGAN } from '../lib/chdq/area'
+import {
+  AMBANG_CHDQ_SEDANG_SEMENTARA,
+  AMBANG_CHDQ_TINGGI_SEMENTARA,
+} from '../lib/chdq/skala'
 
 const prisma = new PrismaClient()
 
@@ -35,7 +53,72 @@ async function seedSegmenTubuh() {
       },
     })
   }
-  console.log(`✓ ${SEGMEN_TUBUH.length} segmen tubuh tersimpan`)
+  console.log(`✓ ${SEGMEN_TUBUH.length} item CMDQ tersimpan`)
+}
+
+async function seedAreaTangan() {
+  for (const area of AREA_TANGAN) {
+    await prisma.areaTangan.upsert({
+      where: { kode: area.kode },
+      update: {
+        tangan: area.tangan,
+        huruf: area.huruf,
+        nama: area.nama,
+        urutan: area.urutan,
+      },
+      create: {
+        kode: area.kode,
+        tangan: area.tangan,
+        huruf: area.huruf,
+        nama: area.nama,
+        urutan: area.urutan,
+      },
+    })
+  }
+  console.log(`✓ ${AREA_TANGAN.length} area tangan CHDQ tersimpan`)
+}
+
+/**
+ * Menyiapkan baris ambang, TANPA menimpa hasil perhitungan yang sudah ada.
+ *
+ * `update: {}` disengaja. Bila peneliti sudah menghitung tersil empiris,
+ * menjalankan ulang seed tidak boleh mengembalikannya ke nilai sementara —
+ * kategori risiko seluruh responden akan bergeser tanpa ada yang menyadarinya.
+ */
+async function seedAmbangRisiko() {
+  await prisma.ambangRisiko.upsert({
+    where: { instrumen: 'CMDQ' },
+    update: {},
+    create: {
+      instrumen: 'CMDQ',
+      ambangSedang: AMBANG_TOTAL_SEDANG_SEMENTARA,
+      ambangTinggi: AMBANG_TOTAL_TINGGI_SEMENTARA,
+      persentilSedang: PERSENTIL_AMBANG_SEDANG,
+      persentilTinggi: PERSENTIL_AMBANG_TINGGI,
+      jumlahResponden: 0,
+      dariData: false,
+      catatan:
+        'Nilai sementara bawaan. Hitung ulang dari panel admin setelah data responden mencukupi.',
+    },
+  })
+
+  await prisma.ambangRisiko.upsert({
+    where: { instrumen: 'CHDQ' },
+    update: {},
+    create: {
+      instrumen: 'CHDQ',
+      ambangSedang: AMBANG_CHDQ_SEDANG_SEMENTARA,
+      ambangTinggi: AMBANG_CHDQ_TINGGI_SEMENTARA,
+      persentilSedang: PERSENTIL_AMBANG_SEDANG,
+      persentilTinggi: PERSENTIL_AMBANG_TINGGI,
+      jumlahResponden: 0,
+      dariData: false,
+      catatan:
+        'Nilai sementara bawaan. Hitung ulang dari panel admin setelah data responden mencukupi.',
+    },
+  })
+
+  console.log('✓ Ambang kategori risiko siap (CMDQ & CHDQ)')
 }
 
 async function seedAdmin() {
@@ -76,6 +159,8 @@ async function seedAdmin() {
 
 async function main() {
   await seedSegmenTubuh()
+  await seedAreaTangan()
+  await seedAmbangRisiko()
   await seedAdmin()
 }
 

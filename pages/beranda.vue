@@ -145,7 +145,7 @@ const tahapSekarang = computed(() => {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="mx-auto max-w-3xl space-y-4">
     <p v-if="pending" class="text-sm text-ink-500">Memuat data…</p>
 
     <div

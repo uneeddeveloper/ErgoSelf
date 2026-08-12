@@ -8,15 +8,12 @@ import {
 import { nomorTahap } from '~~/lib/alur'
 import { OPSI_YA_TIDAK } from '~~/types/ui'
 import {
+  denganLainnya,
   NILAI_LAINNYA,
-  OPSI_DIVISI,
   OPSI_DURASI_KOMPUTER,
-  OPSI_JABATAN,
   OPSI_JENIS_KELAMIN,
   OPSI_MASA_KERJA,
   OPSI_USIA,
-  PILIHAN_DIVISI,
-  PILIHAN_JABATAN,
 } from '~~/lib/sosiodemografi'
 
 /**
@@ -26,6 +23,24 @@ definePageMeta({ middleware: 'responden' })
 useHead({ title: 'Data Sosiodemografis — ErgoSelf' })
 
 const { data: profil } = await useFetch('/api/responden/saya')
+
+/**
+ * Divisi & jabatan datang dari basis data karena peneliti mengelolanya lewat
+ * panel admin. Sisanya tetap konstanta (lihat `lib/sosiodemografi.ts`).
+ *
+ * Permintaan ini SENGAJA di-await bersama render, bukan dimuat setelahnya:
+ * `pulihkanPilihan()` di bawah membutuhkan daftarnya untuk memutuskan apakah
+ * nilai tersimpan berasal dari daftar atau dari "Lainnya". Kalau daftarnya
+ * masih kosong saat profil lama dipulihkan, responden yang memilih
+ * "Teknologi Informasi" akan melihat tombol "Lainnya" menyala dengan teks
+ * divisinya di kolom isian — dan mengirimkannya kembali sebagai teks bebas.
+ */
+const { data: opsi } = await useFetch('/api/sosiodemografi')
+
+const daftarDivisi = computed(() => opsi.value?.divisi ?? [])
+const daftarJabatan = computed(() => opsi.value?.jabatan ?? [])
+const pilihanDivisi = computed(() => denganLainnya(daftarDivisi.value))
+const pilihanJabatan = computed(() => denganLainnya(daftarJabatan.value))
 
 const form = reactive({
   usia: '',
@@ -84,12 +99,15 @@ function pulihkanPilihan(tersimpan: string | null | undefined, daftar: readonly 
 }
 
 // Isi ulang bila responden kembali untuk mengoreksi profilnya.
+//
+// Dipantau bersama daftar opsi, bukan hanya `profil`: keduanya datang dari dua
+// permintaan terpisah, dan pemulihan hanya benar setelah daftarnya ada.
 watch(
-  profil,
-  (p) => {
+  [profil, opsi],
+  ([p]) => {
     if (!p || p.statusProfil !== 'SELESAI') return
-    const divisi = pulihkanPilihan(p.divisi, OPSI_DIVISI)
-    const jabatan = pulihkanPilihan(p.jabatan, OPSI_JABATAN)
+    const divisi = pulihkanPilihan(p.divisi, daftarDivisi.value)
+    const jabatan = pulihkanPilihan(p.jabatan, daftarJabatan.value)
     Object.assign(form, {
       usia: p.usia ?? '',
       jenisKelamin: p.jenisKelamin ?? undefined,
@@ -191,7 +209,7 @@ function kelasFor(field: string) {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="mx-auto max-w-3xl space-y-4">
     <UiProgres :tahap="nomorTahap('PROFIL')" keterangan="Data sosiodemografis" />
 
     <header class="rounded-kartu bg-brand-150 p-5">
@@ -280,7 +298,7 @@ function kelasFor(field: string) {
             v-model="form.divisiPilihan"
             nama="divisi"
             :kolom="2"
-            :opsi="PILIHAN_DIVISI"
+            :opsi="pilihanDivisi"
             :galat="!!galat.divisi"
             @update:model-value="bersihkanGalat('divisi')"
           />
@@ -305,7 +323,7 @@ function kelasFor(field: string) {
             v-model="form.jabatanPilihan"
             nama="jabatan"
             :kolom="2"
-            :opsi="PILIHAN_JABATAN"
+            :opsi="pilihanJabatan"
             :galat="!!galat.jabatan"
             @update:model-value="bersihkanGalat('jabatan')"
           />

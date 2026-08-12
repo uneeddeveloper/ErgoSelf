@@ -15,6 +15,8 @@ import bcrypt from 'bcryptjs'
 import { evaluasiImt } from '../lib/imt'
 import { SEGMEN_TUBUH } from '../lib/cmdq/segmen'
 import { hitungSkorCmdq } from '../lib/cmdq/skoring'
+import { AREA_TANGAN } from '../lib/chdq/area'
+import { hitungSkorChdq } from '../lib/chdq/skoring'
 import { hitungSkorSus } from '../lib/sus/skoring'
 import type {
   OpsiDurasiKomputer,
@@ -49,8 +51,10 @@ interface Contoh {
   merokok: boolean
   olahraga: number | null
   riwayat: boolean
-  /** Segmen berkeluhan: kode → [frekuensi, ketidaknyamanan, gangguan] */
+  /** Item CMDQ berkeluhan: kode → [frekuensi 0–4, ketidaknyamanan, gangguan] */
   keluhan: Record<string, [number, number, number]>
+  /** Area CHDQ berkeluhan: kode → [frekuensi 0–4, ketidaknyamanan, gangguan] */
+  keluhanTangan: Record<string, [number, number, number]>
   sus: number[]
 }
 
@@ -60,7 +64,8 @@ const DATA: Contoh[] = [
     masaKerja: '< 5 Thn', durasi: '> 6 Jam',
     divisi: 'Keuangan & Akuntansi', jabatan: 'Staf / Pelaksana', unitKerja: 'Seksi Pajak',
     merokok: true, olahraga: 2, riwayat: false,
-    keluhan: { LEHER_ATAS: [2, 2, 1], BAHU_KANAN: [1, 2, 1] },
+    keluhan: { LEHER: [2, 2, 1], BAHU_KANAN: [1, 2, 1] },
+    keluhanTangan: {},
     sus: [4, 2, 5, 1, 4, 2, 5, 2, 4, 3],
   },
   {
@@ -68,7 +73,8 @@ const DATA: Contoh[] = [
     masaKerja: '> 5 Thn', durasi: '> 6 Jam',
     divisi: 'Administrasi & Umum', jabatan: 'Supervisor / Koordinator', unitKerja: null,
     merokok: false, olahraga: null, riwayat: true,
-    keluhan: { LEHER_ATAS: [3, 3, 2], LEHER_BAWAH: [3, 2, 2], PUNGGUNG: [2, 2, 2], PINGGANG: [3, 3, 3] },
+    keluhan: { LEHER: [4, 3, 2], PUNGGUNG_ATAS: [2, 2, 2], PUNGGUNG_BAWAH: [3, 3, 3] },
+    keluhanTangan: { KANAN_D: [2, 2, 1] },
     sus: [5, 1, 5, 1, 4, 2, 4, 2, 5, 2],
   },
   {
@@ -77,10 +83,11 @@ const DATA: Contoh[] = [
     divisi: 'Produksi / Operasional', jabatan: 'Kepala Seksi / Manajer', unitKerja: null,
     merokok: true, olahraga: null, riwayat: true,
     keluhan: {
-      LEHER_ATAS: [3, 3, 3], LEHER_BAWAH: [3, 3, 2], BAHU_KIRI: [2, 2, 2], BAHU_KANAN: [3, 3, 2],
-      PUNGGUNG: [3, 3, 3], PINGGANG: [3, 3, 3], BOKONG: [2, 2, 1], PANTAT: [3, 2, 2],
+      LEHER: [4, 3, 3], BAHU_KIRI: [2, 2, 2], BAHU_KANAN: [3, 3, 2],
+      PUNGGUNG_ATAS: [3, 3, 3], PUNGGUNG_BAWAH: [4, 3, 3], PINGGUL_BOKONG: [3, 2, 2],
       LUTUT_KANAN: [2, 2, 2], PERGELANGAN_TANGAN_KANAN: [3, 2, 2],
     },
+    keluhanTangan: { KANAN_A: [3, 2, 2], KANAN_E: [2, 2, 1], KIRI_D: [1, 1, 1] },
     sus: [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
   },
   {
@@ -88,7 +95,8 @@ const DATA: Contoh[] = [
     masaKerja: '< 5 Thn', durasi: '> 6 Jam',
     divisi: 'Pemasaran & Penjualan', jabatan: 'Staf / Pelaksana', unitKerja: null,
     merokok: false, olahraga: 4, riwayat: false,
-    keluhan: { LEHER_ATAS: [1, 1, 1] },
+    keluhan: { LEHER: [1, 1, 1] },
+    keluhanTangan: {},
     sus: [4, 2, 4, 2, 4, 2, 5, 1, 4, 2],
   },
   {
@@ -97,9 +105,10 @@ const DATA: Contoh[] = [
     divisi: 'Produksi / Operasional', jabatan: 'Kepala Bagian / Direksi', unitKerja: null,
     merokok: true, olahraga: 1, riwayat: true,
     keluhan: {
-      PINGGANG: [3, 3, 3], PUNGGUNG: [3, 2, 2], LUTUT_KIRI: [2, 2, 2], LUTUT_KANAN: [3, 3, 2],
-      BETIS_KIRI: [2, 1, 1], BETIS_KANAN: [2, 2, 1], LEHER_BAWAH: [2, 2, 2],
+      PUNGGUNG_BAWAH: [4, 3, 3], PUNGGUNG_ATAS: [3, 2, 2], LUTUT_KIRI: [2, 2, 2], LUTUT_KANAN: [3, 3, 2],
+      TUNGKAI_BAWAH_KIRI: [2, 1, 1], TUNGKAI_BAWAH_KANAN: [2, 2, 1], LEHER: [2, 2, 2],
     },
+    keluhanTangan: {},
     sus: [2, 4, 3, 4, 2, 3, 3, 4, 2, 4],
   },
   {
@@ -108,6 +117,7 @@ const DATA: Contoh[] = [
     divisi: 'Administrasi & Umum', jabatan: 'Staf / Pelaksana', unitKerja: 'Seksi Arsip',
     merokok: false, olahraga: 5, riwayat: false,
     keluhan: {},
+    keluhanTangan: {},
     sus: [5, 1, 5, 2, 5, 1, 5, 1, 5, 1],
   },
   {
@@ -115,7 +125,10 @@ const DATA: Contoh[] = [
     masaKerja: '> 5 Thn', durasi: '> 6 Jam',
     divisi: 'Teknologi Informasi', jabatan: 'Supervisor / Koordinator', unitKerja: null,
     merokok: false, olahraga: 3, riwayat: false,
-    keluhan: { PERGELANGAN_TANGAN_KANAN: [3, 2, 2], TANGAN_KANAN: [2, 2, 1], LEHER_ATAS: [2, 1, 1] },
+    keluhan: { PERGELANGAN_TANGAN_KANAN: [4, 3, 2], LEHER: [2, 1, 1] },
+    // Pola khas pengguna tetikus: keluhan terpusat di tangan kanan, pada area
+    // persarafan medianus (A & D) — justru yang dicari CHDQ.
+    keluhanTangan: { KANAN_A: [4, 3, 2], KANAN_D: [3, 2, 2], KANAN_E: [2, 2, 1] },
     sus: [4, 3, 4, 2, 4, 2, 4, 2, 4, 3],
   },
   {
@@ -123,7 +136,8 @@ const DATA: Contoh[] = [
     masaKerja: '< 5 Thn', durasi: '> 6 Jam',
     divisi: 'Teknologi Informasi', jabatan: 'Staf / Pelaksana', unitKerja: null,
     merokok: false, olahraga: 2, riwayat: false,
-    keluhan: { LEHER_ATAS: [2, 2, 1], BAHU_KIRI: [1, 1, 1] },
+    keluhan: { LEHER: [2, 2, 1], BAHU_KIRI: [1, 1, 1] },
+    keluhanTangan: { KANAN_A: [1, 1, 1] },
     sus: [3, 3, 4, 3, 3, 3, 4, 3, 3, 3],
   },
   {
@@ -131,7 +145,8 @@ const DATA: Contoh[] = [
     masaKerja: '> 10 Thn', durasi: '> 6 Jam',
     divisi: 'Keuangan & Akuntansi', jabatan: 'Kepala Seksi / Manajer', unitKerja: null,
     merokok: true, olahraga: null, riwayat: false,
-    keluhan: { PINGGANG: [2, 2, 2], PUNGGUNG: [2, 2, 1], BAHU_KANAN: [2, 2, 2], LEHER_BAWAH: [3, 2, 2] },
+    keluhan: { PUNGGUNG_BAWAH: [2, 2, 2], PUNGGUNG_ATAS: [2, 2, 1], BAHU_KANAN: [2, 2, 2], LEHER: [3, 2, 2] },
+    keluhanTangan: {},
     sus: [4, 2, 4, 2, 3, 3, 4, 2, 4, 3],
   },
   {
@@ -139,7 +154,8 @@ const DATA: Contoh[] = [
     masaKerja: '< 5 Thn', durasi: '> 6 Jam',
     divisi: 'Pemasaran & Penjualan', jabatan: 'Staf / Pelaksana', unitKerja: null,
     merokok: false, olahraga: 3, riwayat: false,
-    keluhan: { LEHER_ATAS: [1, 2, 1] },
+    keluhan: { LEHER: [1, 2, 1] },
+    keluhanTangan: {},
     sus: [5, 2, 4, 1, 5, 1, 5, 2, 4, 2],
   },
   {
@@ -148,22 +164,27 @@ const DATA: Contoh[] = [
     divisi: 'Logistik & Pengadaan', jabatan: 'Supervisor / Koordinator', unitKerja: 'Gudang Bahan Baku',
     merokok: true, olahraga: null, riwayat: true,
     keluhan: {
-      PINGGANG: [3, 3, 3], BOKONG: [3, 2, 2], PANTAT: [3, 3, 2], PUNGGUNG: [3, 3, 2],
-      LEHER_ATAS: [2, 2, 2], LEHER_BAWAH: [3, 2, 2], PAHA_KIRI: [2, 1, 1], PAHA_KANAN: [2, 2, 1],
-      LUTUT_KIRI: [2, 2, 2], LUTUT_KANAN: [2, 2, 2], KAKI_KIRI: [1, 1, 1], KAKI_KANAN: [2, 1, 1],
+      PUNGGUNG_BAWAH: [4, 3, 3], PINGGUL_BOKONG: [3, 3, 2], PUNGGUNG_ATAS: [3, 3, 2],
+      LEHER: [3, 2, 2], PAHA_KIRI: [2, 1, 1], PAHA_KANAN: [2, 2, 1],
+      LUTUT_KIRI: [2, 2, 2], LUTUT_KANAN: [2, 2, 2],
+      TUNGKAI_BAWAH_KIRI: [1, 1, 1], TUNGKAI_BAWAH_KANAN: [2, 1, 1],
     },
+    keluhanTangan: { KANAN_F: [2, 2, 1] },
     sus: [3, 4, 3, 3, 3, 4, 3, 3, 2, 4],
   },
   {
     nama: 'Lina Marlina', jenisKelamin: 'PEREMPUAN', usia: '47-52 Thn', tinggi: 154, berat: 65,
     masaKerja: '> 10 Thn', durasi: '> 6 Jam',
-    // Nilai di luar `OPSI_DIVISI` — meniru responden yang memilih "Lainnya".
+    // Nilai di luar master divisi — meniru responden yang memilih "Lainnya".
     divisi: 'Perpustakaan', jabatan: 'Staf / Pelaksana', unitKerja: null,
     merokok: false, olahraga: 1, riwayat: true,
     keluhan: {
-      LEHER_ATAS: [3, 2, 2], BAHU_KIRI: [2, 2, 2], BAHU_KANAN: [3, 3, 2],
-      PERGELANGAN_TANGAN_KANAN: [2, 2, 2], PINGGANG: [2, 2, 1],
+      LEHER: [3, 2, 2], BAHU_KIRI: [2, 2, 2], BAHU_KANAN: [3, 3, 2],
+      PERGELANGAN_TANGAN_KANAN: [2, 2, 2], PUNGGUNG_BAWAH: [2, 2, 1],
     },
+    // Keluhan tangan pada KEDUA sisi — menguji tampilan saat tidak ada tangan
+    // yang dominan.
+    keluhanTangan: { KANAN_B: [2, 2, 2], KIRI_B: [2, 2, 2] },
     sus: [4, 2, 4, 3, 4, 2, 4, 2, 3, 4],
   },
 ]
@@ -179,13 +200,29 @@ async function bersihkan() {
 const SANDI_CONTOH = 'demo12345'
 
 async function buat() {
-  const segmenDb = await prisma.segmenTubuh.findMany({ select: { id: true, kode: true } })
-  if (segmenDb.length === 0) {
-    console.error('! Tabel segmen_tubuh masih kosong. Jalankan `npm run db:seed` dulu.')
+  const [segmenDb, areaDb, divisiDb, jabatanDb] = await Promise.all([
+    prisma.segmenTubuh.findMany({ select: { id: true, kode: true } }),
+    prisma.areaTangan.findMany({ select: { id: true, kode: true } }),
+    prisma.divisi.findMany({ select: { id: true, nama: true } }),
+    prisma.jabatan.findMany({ select: { id: true, nama: true } }),
+  ])
+
+  if (segmenDb.length === 0 || areaDb.length === 0) {
+    console.error(
+      '! Tabel segmen_tubuh / area_tangan masih kosong. Jalankan `npm run db:seed` dulu.',
+    )
     process.exitCode = 1
     return
   }
+
   const idPerKode = new Map(segmenDb.map((s) => [s.kode, s.id]))
+  const idPerKodeArea = new Map(areaDb.map((a) => [a.kode, a.id]))
+  // Ditautkan lewat nama, persis seperti yang dilakukan endpoint profil
+  // responden — termasuk membiarkan NULL untuk nilai di luar master, yang
+  // menandai jawaban "Lainnya".
+  const idPerDivisi = new Map(divisiDb.map((d) => [d.nama, d.id]))
+  const idPerJabatan = new Map(jabatanDb.map((j) => [j.nama, j.id]))
+
   const passwordHash = await bcrypt.hash(SANDI_CONTOH, 10)
 
   for (const [i, c] of DATA.entries()) {
@@ -203,9 +240,20 @@ async function buat() {
           : { kodeSegmen: s.kode, frekuensiKode: 0, ketidaknyamananSkor: null, gangguanSkor: null }
       }),
     )
+    const hasilChdq = hitungSkorChdq(
+      AREA_TANGAN.map((a) => {
+        const k = c.keluhanTangan[a.kode]
+        return k
+          ? { kodeArea: a.kode, frekuensiKode: k[0], ketidaknyamananSkor: k[1], gangguanSkor: k[2] }
+          : { kodeArea: a.kode, frekuensiKode: 0, ketidaknyamananSkor: null, gangguanSkor: null }
+      }),
+    )
     const hasilSus = hitungSkorSus(
       c.sus.map((n, idx) => ({ itemNomor: idx + 1, skorJawaban: n })),
     )
+
+    const kanan = hasilChdq.perTangan.find((t) => t.tangan === 'KANAN')!
+    const kiri = hasilChdq.perTangan.find((t) => t.tangan === 'KIRI')!
 
     await prisma.responden.deleteMany({
       where: { OR: [{ kodeResponden }, { email }] },
@@ -222,7 +270,9 @@ async function buat() {
         usia: c.usia,
         jenisKelamin: c.jenisKelamin,
         divisi: c.divisi,
+        divisiId: idPerDivisi.get(c.divisi) ?? null,
         jabatan: c.jabatan,
+        jabatanId: idPerJabatan.get(c.jabatan) ?? null,
         unitKerja: c.unitKerja,
         masaKerjaTahun: c.masaKerja,
         durasiKomputerJamPerHari: c.durasi,
@@ -237,6 +287,7 @@ async function buat() {
         keteranganRiwayatMsds: c.riwayat ? 'Data contoh — riwayat nyeri berulang' : null,
         statusProfil: 'SELESAI',
         statusCmdq: 'SELESAI',
+        statusChdq: 'SELESAI',
         statusSus: 'SELESAI',
         cmdqJawaban: {
           create: hasilCmdq.perSegmen.map((s) => ({
@@ -257,9 +308,45 @@ async function buat() {
             segmenTertinggiId: hasilCmdq.segmenTertinggi
               ? idPerKode.get(hasilCmdq.segmenTertinggi.kodeSegmen)!
               : null,
+            jumlahRating: hasilCmdq.metode.jumlahRating,
+            jumlahFrekuensiBerbobot: new Prisma.Decimal(
+              hasilCmdq.metode.jumlahFrekuensiBerbobot,
+            ),
+            jumlahSegmenNilaiHilang: hasilCmdq.jumlahSegmenNilaiHilang,
             jumlahSegmenDinilai: hasilCmdq.jumlahSegmenDinilai,
             ambangSedang: new Prisma.Decimal(hasilCmdq.ambangSedang),
             ambangTinggi: new Prisma.Decimal(hasilCmdq.ambangTinggi),
+          },
+        },
+        chdqJawaban: {
+          create: hasilChdq.perArea.map((a) => ({
+            areaId: idPerKodeArea.get(a.kodeArea)!,
+            frekuensiKode: a.frekuensiKode,
+            frekuensiBobot: new Prisma.Decimal(a.frekuensiBobot),
+            ketidaknyamananSkor: a.ketidaknyamananSkor,
+            gangguanSkor: a.gangguanSkor,
+            skor: new Prisma.Decimal(a.skor),
+          })),
+        },
+        chdqHasil: {
+          create: {
+            skorTotal: new Prisma.Decimal(hasilChdq.skorTotal),
+            skorTanganKanan: new Prisma.Decimal(kanan.skorTotal),
+            skorTanganKiri: new Prisma.Decimal(kiri.skorTotal),
+            tanganDominan: hasilChdq.tanganDominan,
+            jumlahAreaBermasalah: hasilChdq.jumlahAreaBermasalah,
+            kategoriRisiko: hasilChdq.kategoriRisiko,
+            areaTertinggiId: hasilChdq.areaTertinggi
+              ? idPerKodeArea.get(hasilChdq.areaTertinggi.kodeArea)!
+              : null,
+            jumlahRating: hasilChdq.metode.jumlahRating,
+            jumlahFrekuensiBerbobot: new Prisma.Decimal(
+              hasilChdq.metode.jumlahFrekuensiBerbobot,
+            ),
+            jumlahAreaNilaiHilang: hasilChdq.jumlahAreaNilaiHilang,
+            jumlahAreaDinilai: hasilChdq.perArea.length,
+            ambangSedang: new Prisma.Decimal(hasilChdq.ambangSedang),
+            ambangTinggi: new Prisma.Decimal(hasilChdq.ambangTinggi),
           },
         },
         susJawaban: {
@@ -282,7 +369,8 @@ async function buat() {
 
     console.log(
       `  ${kodeResponden}  ${c.nama.padEnd(18)} IMT ${String(imt.imt).padStart(5)} ${imt.labelSingkat.padEnd(13)}` +
-        ` CMDQ ${String(hasilCmdq.skorTotal).padStart(3)} ${hasilCmdq.kategoriRisiko.padEnd(7)}` +
+        ` CMDQ ${String(hasilCmdq.skorTotal).padStart(6)} ${hasilCmdq.kategoriRisiko.padEnd(7)}` +
+        ` CHDQ ${String(hasilChdq.skorTotal).padStart(5)}` +
         ` SUS ${String(hasilSus.skorTotal).padStart(5)} ${hasilSus.gradeHuruf}`,
     )
   }

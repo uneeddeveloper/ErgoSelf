@@ -52,6 +52,16 @@ const data = computed(() => ({
   ],
 }))
 
+/**
+ * Angka pada sumbu memakai huruf mono, sama seperti tabel rekapitulasi.
+ * Bukan kosmetik: lebar digitnya seragam, sehingga label "8" dan "18" pada
+ * sumbu tidak bergeser dan grafik tidak tampak "bergetar" saat filter diubah.
+ */
+const FONT_ANGKA = {
+  family: "'IBM Plex Mono', ui-monospace, monospace",
+  size: 11,
+} as const
+
 const opsi = computed(() => ({
   indexAxis: props.arah === 'y' ? ('y' as const) : ('x' as const),
   responsive: true,
@@ -60,10 +70,10 @@ const opsi = computed(() => ({
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: '#10201a',
+      backgroundColor: '#0b1f18',
       padding: 10,
-      cornerRadius: 8,
-      titleFont: { size: 12, weight: 700 as const },
+      cornerRadius: 6,
+      titleFont: { size: 12, weight: 600 as const },
       bodyFont: { size: 12 },
       displayColors: false,
       callbacks: {
@@ -88,7 +98,7 @@ const opsi = computed(() => ({
       },
       ticks: {
         color: WARNA.teksRedup,
-        font: { size: 11 },
+        font: props.arah === 'y' ? FONT_ANGKA : { size: 11 },
         maxRotation: props.arah === 'x' ? 45 : 0,
         autoSkip: false,
       },
@@ -101,7 +111,11 @@ const opsi = computed(() => ({
         color: WARNA.grid,
         drawTicks: false,
       },
-      ticks: { color: WARNA.teksRedup, font: { size: 11 }, autoSkip: false },
+      ticks: {
+        color: WARNA.teksRedup,
+        font: props.arah === 'x' ? FONT_ANGKA : { size: 11 },
+        autoSkip: false,
+      },
     },
   },
 }))

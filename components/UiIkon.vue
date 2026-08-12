@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import {
+  ArrowDownTrayIcon,
+  ArrowLeftOnRectangleIcon,
   BriefcaseIcon,
   ChartBarIcon,
   ChartPieIcon,
@@ -8,10 +10,13 @@ import {
   ClipboardDocumentCheckIcon,
   ClipboardDocumentListIcon,
   ClockIcon,
+  Cog6ToothIcon,
   CursorArrowRaysIcon,
   DocumentTextIcon,
   ExclamationTriangleIcon,
   FaceSmileIcon,
+  FunnelIcon,
+  HandRaisedIcon,
   HeartIcon,
   HomeIcon,
   LightBulbIcon,
@@ -19,10 +24,13 @@ import {
   MagnifyingGlassIcon,
   MapIcon,
   PencilSquareIcon,
+  PlusIcon,
   PrinterIcon,
   ScaleIcon,
   ShieldCheckIcon,
   SparklesIcon,
+  TableCellsIcon,
+  TrashIcon,
   UserCircleIcon,
 } from '@heroicons/vue/24/outline'
 
@@ -66,6 +74,16 @@ const PETA = {
   cetak: PrinterIcon,
   ubah: PencilSquareIcon,
   tunjuk: CursorArrowRaysIcon,
+
+  // — Konsol peneliti —
+  tangan: HandRaisedIcon,
+  pengaturan: Cog6ToothIcon,
+  unduh: ArrowDownTrayIcon,
+  keluar: ArrowLeftOnRectangleIcon,
+  saring: FunnelIcon,
+  tabel: TableCellsIcon,
+  tambah: PlusIcon,
+  hapus: TrashIcon,
 } as const
 
 const props = withDefaults(

@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import type { Prisma } from '@prisma/client'
-import { OPSI_DIVISI, OPSI_JABATAN, OPSI_USIA } from '~~/lib/sosiodemografi'
+import { OPSI_USIA } from '~~/lib/sosiodemografi'
 
 /**
  * Filter dashboard peneliti — dipakai bersama oleh endpoint rekapitulasi,
@@ -78,8 +78,31 @@ export interface FilterDashboard {
   aktif: Record<string, unknown>
 }
 
-export function bacaFilter(event: H3Event): FilterDashboard {
+/**
+ * Nama divisi & jabatan yang sah, dibaca dari master.
+ *
+ * ENTRI NONAKTIF TETAP IKUT. Filter dasbor bekerja atas data yang SUDAH
+ * terkumpul; menyaring daftar sahnya hanya pada entri aktif akan membuat
+ * peneliti kehilangan kemampuan memfilter responden dari divisi yang sudah
+ * dihapus dari form — padahal justru merekalah yang perlu ditinjau terpisah.
+ */
+async function namaMasterSah(): Promise<{
+  divisi: string[]
+  jabatan: string[]
+}> {
+  const [divisi, jabatan] = await Promise.all([
+    prisma.divisi.findMany({ select: { nama: true } }),
+    prisma.jabatan.findMany({ select: { nama: true } }),
+  ])
+  return {
+    divisi: divisi.map((d) => d.nama),
+    jabatan: jabatan.map((j) => j.nama),
+  }
+}
+
+export async function bacaFilter(event: H3Event): Promise<FilterDashboard> {
   const q = getQuery(event)
+  const master = await namaMasterSah()
 
   const sertakanContoh = q.sertakanContoh === '1'
   const jenisKelamin = pilihanValid(q.jenisKelamin, JENIS_KELAMIN)
@@ -91,8 +114,8 @@ export function bacaFilter(event: H3Event): FilterDashboard {
   // `gte`/`lte` — perbandingan yang pada kolom VARCHAR berjalan secara
   // leksikografis, sehingga "> 52 Thn" terhitung lebih kecil dari "17-22 Thn".
   const usia = daftarValid(q.usia, OPSI_USIA)
-  const divisi = daftarValid(q.divisi, OPSI_DIVISI)
-  const jabatan = daftarValid(q.jabatan, OPSI_JABATAN)
+  const divisi = daftarValid(q.divisi, master.divisi)
+  const jabatan = daftarValid(q.jabatan, master.jabatan)
   const kategoriImt = daftarValid(q.kategoriImt, KATEGORI_IMT)
 
   const cari =

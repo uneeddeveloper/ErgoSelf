@@ -46,14 +46,27 @@ enum Sisi {
   KANAN
 }
 
-/// Pengelompokan regional 28 segmen Nordic Body Map, untuk analisis
-/// deskriptif per regio di Bab IV
+/// Pengelompokan regional 18 item CMDQ, untuk analisis deskriptif per regio
+/// di Bab IV
 enum RegioTubuh {
   LEHER
   BAHU
   PUNGGUNG_PINGGANG
   EKSTREMITAS_ATAS
   EKSTREMITAS_BAWAH
+}
+
+/// Tangan yang dinilai pada CHDQ. Cornell menerbitkan dua berkas terpisah
+/// (`rhandq.pdf` & `lhandq.pdf`), dan keduanya diisi responden.
+enum TanganChdq {
+  KANAN
+  KIRI
+}
+
+/// Instrumen yang ambang tersilnya disimpan di `ambang_risiko`
+enum InstrumenAmbang {
+  CMDQ
+  CHDQ
 }
 
 enum KategoriRisiko {
@@ -100,9 +113,9 @@ model Responden {
   // ── Akun (dibuat pada langkah 1: Registrasi) ────────────────────────────
   /// Kode anonim responden untuk pelaporan & ekspor (mis. "PTX-001").
   /// Bukan kredensial — masuk memakai email + kata sandi.
-  kodeResponden String @unique @db.VarChar(32)
-  nama          String @db.VarChar(120)
-  email         String @unique @db.VarChar(160)
+  kodeResponden String  @unique @db.VarChar(32)
+  nama          String  @db.VarChar(120)
+  email         String  @unique @db.VarChar(160)
   passwordHash  String? @db.VarChar(255) // Tambahkan tanda ? di sini
 
   /// Persetujuan etik penelitian (informed consent). Wajib dicentang saat
@@ -122,22 +135,42 @@ model Responden {
   // sebelum "17-22 Thn".
 
   // — Karakteristik individu —
-  usia         String? @db.VarChar(20)
+  usia         String?       @db.VarChar(20)
   jenisKelamin JenisKelamin?
 
   // — Karakteristik okupasional —
-  /// Divisi/departemen. Nilai di luar daftar baku dimungkinkan lewat pilihan
-  /// "Lainnya" pada form — yang tersimpan adalah teks yang diketik responden,
-  /// bukan kata "Lainnya".
-  divisi  String? @db.VarChar(120)
-  /// Jenjang jabatan struktural. Idem soal "Lainnya".
-  jabatan String? @db.VarChar(120)
+  //
+  // Divisi & jabatan kini dikelola lewat CMS di panel admin (tabel `divisi` &
+  // `jabatan`), tidak lagi dari daftar tetap di dalam kode.
+  //
+  // KOLOM TEKS DI BAWAH SENGAJA DIPERTAHANKAN di samping foreign key-nya, dan
+  // itu bukan duplikasi yang terlewat. Keduanya menjawab pertanyaan berbeda:
+  //   - `divisiId`  → "divisi mana pada struktur organisasi saat ini"
+  //   - `divisi`    → "apa nama divisi ini SAAT responden mengisinya"
+  // Ketika admin mengganti nama sebuah divisi setelah pengumpulan data
+  // berjalan, tabulasi silang harus tetap memakai nama yang berlaku saat itu;
+  // kalau label ikut berubah surut, dua kelompok responden yang dikumpulkan
+  // pada struktur organisasi berbeda tergabung diam-diam menjadi satu sel.
+  //
+  // Kolom teks juga menampung jawaban "Lainnya" — teks yang diketik responden
+  // ketika divisinya tidak ada di daftar. Pada baris seperti itu `divisiId`
+  // bernilai NULL, dan itulah satu-satunya cara membedakan keduanya.
+
+  /// Nama divisi sebagaimana berlaku saat responden mengisi profil
+  divisi   String? @db.VarChar(120)
+  /// Acuan ke master divisi; NULL bila responden mengisi lewat "Lainnya"
+  divisiId Int?
+
+  /// Nama jabatan sebagaimana berlaku saat responden mengisi profil
+  jabatan   String? @db.VarChar(120)
+  /// Acuan ke master jabatan; NULL bila responden mengisi lewat "Lainnya"
+  jabatanId Int?
   /// Sub-bagian/seksi — keterangan bebas yang lebih rinci dari divisi.
   /// Satu-satunya kolom sosiodemografis yang memang opsional bagi responden.
   unitKerja String? @db.VarChar(120)
 
   /// Masa kerja dalam kategori rentang tahun
-  masaKerjaTahun          String? @db.VarChar(20)
+  masaKerjaTahun           String? @db.VarChar(20)
   /// Rata-rata durasi penggunaan komputer per hari dalam rentang (jam)
   durasiKomputerJamPerHari String? @db.VarChar(20)
 
@@ -159,6 +192,7 @@ model Responden {
   // — Status pengisian (dipakai kolom "progress" di dashboard) —
   statusProfil StatusPengisian @default(BELUM)
   statusCmdq   StatusPengisian @default(BELUM)
+  statusChdq   StatusPengisian @default(BELUM)
   statusSus    StatusPengisian @default(BELUM)
 
   dibuatPada DateTime @default(now())
@@ -166,19 +200,70 @@ model Responden {
 
   cmdqJawaban CmdqJawaban[]
   cmdqHasil   CmdqHasil?
+  chdqJawaban ChdqJawaban[]
+  chdqHasil   ChdqHasil?
   susJawaban  SusJawaban[]
   susHasil    SusHasil?
+
+  // Master divisi/jabatan TIDAK boleh terhapus selama masih dirujuk responden;
+  // panel admin menonaktifkannya (`aktif = false`) alih-alih menghapus.
+  divisiRef  Divisi?  @relation(fields: [divisiId], references: [id], onDelete: Restrict)
+  jabatanRef Jabatan? @relation(fields: [jabatanId], references: [id], onDelete: Restrict)
 
   @@index([jenisKelamin])
   @@index([kategoriImt])
   @@index([usia])
   @@index([divisi])
   @@index([jabatan])
+  @@index([divisiId])
+  @@index([jabatanId])
   @@map("responden")
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-//  2. MASTER SEGMEN TUBUH — 28 segmen Nordic Body Map (indeks 0–27)
+//  1b. MASTER DIVISI & JABATAN (dikelola lewat CMS di panel admin)
+//
+//     Sebelumnya kedua daftar ini adalah konstanta di `lib/sosiodemografi.ts`,
+//     sehingga menyesuaikannya dengan struktur organisasi lokasi penelitian
+//     menuntut perubahan kode dan penerapan ulang aplikasi. Kini peneliti
+//     mengelolanya sendiri dari panel admin sebelum pengumpulan data dimulai.
+//
+//     `urutan` menentukan susunan tombol pada form profil; `aktif` menyembunyikan
+//     pilihan dari responden baru TANPA menghapus jejak responden lama.
+// ───────────────────────────────────────────────────────────────────────────
+
+model Divisi {
+  id     Int     @id @default(autoincrement())
+  nama   String  @unique @db.VarChar(120)
+  urutan Int     @default(0)
+  aktif  Boolean @default(true)
+
+  dibuatPada DateTime @default(now())
+  diubahPada DateTime @updatedAt
+
+  responden Responden[]
+
+  @@index([aktif, urutan])
+  @@map("divisi")
+}
+
+model Jabatan {
+  id     Int     @id @default(autoincrement())
+  nama   String  @unique @db.VarChar(120)
+  urutan Int     @default(0)
+  aktif  Boolean @default(true)
+
+  dibuatPada DateTime @default(now())
+  diubahPada DateTime @updatedAt
+
+  responden Responden[]
+
+  @@index([aktif, urutan])
+  @@map("jabatan")
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  2. MASTER BAGIAN TUBUH — 18 item CMDQ versi pekerja duduk (indeks 0–17)
 //
 //     SUMBER KEBENARAN INSTRUMEN ADALAH `lib/cmdq/segmen.ts`, BUKAN TABEL INI.
 //     `hitungSkorCmdq()` memvalidasi kelengkapan jawaban terhadap konstanta
@@ -196,13 +281,13 @@ model SegmenTubuh {
   /// Kode stabil, dipakai sebagai id elemen <path> pada body map SVG
   kode   String     @unique @db.VarChar(48)
   nama   String     @db.VarChar(80) // label bahasa Indonesia (UI responden)
-  namaEn String     @db.VarChar(80) // istilah asli NBM (untuk lampiran tesis)
+  namaEn String     @db.VarChar(80) // istilah asli form Cornell (lampiran tesis)
   sisi   Sisi       @default(TENGAH)
   regio  RegioTubuh
-  /// Nomor segmen NBM baku (0–27), sekaligus urutan tampil atas → bawah
+  /// Nomor item CMDQ (0–17), sekaligus urutan tampil atas → bawah
   urutan Int        @unique
   /// Penanda dokumentasi saja — TIDAK dibaca oleh query mana pun. Instrumen
-  /// harus selalu lengkap 28 segmen; menonaktifkan satu segmen akan membuat
+  /// harus selalu lengkap 18 item; menonaktifkan satu item akan membuat
   /// validasi kelengkapan gagal untuk seluruh responden.
   aktif  Boolean    @default(true)
 
@@ -222,21 +307,25 @@ model CmdqJawaban {
   respondenId Int
   segmenId    Int
 
-  /// Indeks pilihan frekuensi 0–3:
-  ///   0 = Tidak pernah | 1 = 1–2×/minggu | 2 = 3–4×/minggu | 3 = Setiap hari
+  /// Indeks pilihan frekuensi 0–4, sesuai lima kolom pada form Cornell:
+  ///   0 = Tidak pernah        | 1 = 1–2× minggu lalu | 2 = 3–4× minggu lalu
+  ///   3 = Sekali setiap hari  | 4 = Beberapa kali setiap hari
   frekuensiKode  Int     @db.SmallInt
-  /// Bobot frekuensi yang dipakai perhitungan. Skala linier 0 | 1 | 2 | 3.
-  /// Disimpan terpisah dari `frekuensiKode` supaya bobot bisa diganti
-  /// (mis. ke bobot baku CMDQ 0/1,5/3,5/5/10) tanpa mengubah skema.
+  /// Bobot frekuensi baku CMDQ: 0 | 1,5 | 3,5 | 5 | 10. Disimpan terpisah dari
+  /// `frekuensiKode` supaya hasil lama tetap dapat direproduksi bila tabel
+  /// bobot direvisi. Decimal(4,1) memang karena nilai 1,5 dan 3,5.
   frekuensiBobot Decimal @db.Decimal(4, 1)
 
-  /// 1 = Sedikit | 2 = Agak | 3 = Sangat tidak nyaman.
-  /// NULL bila frekuensi = "Tidak pernah" (pertanyaan tidak ditampilkan).
+  /// 1 = Sedikit | 2 = Cukup | 3 = Sangat tidak nyaman.
+  /// NULL bila frekuensi = "Tidak pernah" (pertanyaan tidak ditampilkan),
+  /// ATAU bila responden melewatkannya — aturan missing value Cornell
+  /// memperlakukannya sebagai pengali 1, bukan sebagai jawaban "sedikit".
+  /// Karena itu nilai penggantinya TIDAK dituliskan ke kolom ini.
   ketidaknyamananSkor Int? @db.SmallInt
   /// 1 = Tidak sama sekali | 2 = Sedikit | 3 = Sangat mengganggu. NULL, idem.
   gangguanSkor        Int? @db.SmallInt
 
-  /// skor = frekuensiBobot × ketidaknyamanan × gangguan  (rentang 0–27)
+  /// skor = frekuensiBobot × ketidaknyamanan × gangguan  (rentang 0–90)
   skor Decimal @db.Decimal(5, 2)
 
   dibuatPada DateTime @default(now())
@@ -258,19 +347,34 @@ model CmdqHasil {
   id          Int @id @default(autoincrement())
   respondenId Int @unique
 
-  /// Σ skor seluruh segmen (0 – 27 × jumlah segmen = 0–756 untuk 28 segmen)
+  /// Metode 4 Cornell (skor utama): Σ skor seluruh item, 0 – 90 × 18 = 0–1620
   skorTotal              Decimal        @db.Decimal(7, 2)
-  /// Rata-rata skor per segmen
+  /// Rata-rata skor per item
   skorRataRata           Decimal        @db.Decimal(5, 2)
-  /// Jumlah segmen dengan skor > 0
+  /// Metode 1 Cornell: jumlah item dengan skor > 0 ("jumlah gejala")
   jumlahSegmenBermasalah Int            @db.SmallInt
   kategoriRisiko         KategoriRisiko
   segmenTertinggiId      Int?
-  /// Nilai ambang & jumlah segmen yang berlaku saat perhitungan — direkam
-  /// agar hasil tetap dapat direproduksi bila ambang batas direvisi.
-  jumlahSegmenDinilai    Int            @db.SmallInt
-  ambangSedang           Decimal        @db.Decimal(7, 2)
-  ambangTinggi           Decimal        @db.Decimal(7, 2)
+
+  // ── Metode analisis Cornell lainnya ──────────────────────────────────────
+  //
+  // Instruksi resmi menyebut skor "can be analyzed in 4 ways". Ketiganya
+  // disimpan, bukan dihitung ulang saat ekspor, supaya angka di dasbor, berkas
+  // Excel, dan Bab IV berasal dari satu perhitungan yang sama.
+
+  /// Metode 2: Σ (frekuensiKode + ketidaknyamanan + gangguan), missing = 0
+  jumlahRating            Int     @db.SmallInt
+  /// Metode 3: Σ bobot frekuensi (0–180)
+  jumlahFrekuensiBerbobot Decimal @db.Decimal(6, 2)
+  /// Banyaknya item berkeluhan yang pertanyaan lanjutannya kosong — penanda
+  /// kualitas data, bukan bagian skor.
+  jumlahSegmenNilaiHilang Int     @default(0) @db.SmallInt
+
+  /// Nilai ambang & jumlah item yang berlaku saat perhitungan — direkam agar
+  /// hasil tetap dapat direproduksi setelah ambang tersil dihitung ulang.
+  jumlahSegmenDinilai Int     @db.SmallInt
+  ambangSedang        Decimal @db.Decimal(7, 2)
+  ambangTinggi        Decimal @db.Decimal(7, 2)
 
   selesaiPada DateTime @default(now())
   diubahPada  DateTime @updatedAt
@@ -281,6 +385,146 @@ model CmdqHasil {
   @@index([kategoriRisiko])
   @@index([segmenTertinggiId])
   @@map("cmdq_hasil")
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  4b. CHDQ — CORNELL HAND DISCOMFORT QUESTIONNAIRE
+//
+//      Instrumen TERPISAH dari CMDQ, bukan tambahan item padanya. CMDQ versi
+//      pekerja duduk berhenti di "Wrist"; telapak tangan dan jari ditanyakan
+//      oleh berkas Cornell sendiri (`rhandq.pdf` & `lhandq.pdf`), dengan enam
+//      area per tangan.
+//
+//      Skala, bobot, dan aturan missing value-nya identik dengan CMDQ, jadi
+//      struktur tabelnya sengaja dibuat sejajar — bukan disatukan. Menyatukan
+//      keduanya dalam satu tabel jawaban akan memaksa setiap kueri analisis
+//      menyaring instrumen mana yang dimaksud, dan satu kelalaian menyaring
+//      menghasilkan skor total yang mencampur dua instrumen berbeda.
+// ───────────────────────────────────────────────────────────────────────────
+
+/// Master 12 area tangan (6 area × 2 tangan). Sumber kebenarannya
+/// `lib/chdq/area.ts`; tabel ini menyediakan target foreign key yang stabil.
+model AreaTangan {
+  id     Int        @id @default(autoincrement())
+  /// Kode stabil, mis. "KANAN_A"
+  kode   String     @unique @db.VarChar(24)
+  tangan TanganChdq
+  /// Huruf area sebagaimana tertulis di form Cornell (A–F)
+  huruf  String     @db.VarChar(1)
+  /// Glosa anatomis bahasa Indonesia (keterangan pendamping diagram)
+  nama   String     @db.VarChar(80)
+  /// Nomor item CHDQ (0–11), sekaligus urutan tampil
+  urutan Int        @unique
+
+  jawaban        ChdqJawaban[]
+  hasilTertinggi ChdqHasil[]   @relation("AreaSkorTertinggi")
+
+  @@index([tangan])
+  @@map("area_tangan")
+}
+
+model ChdqJawaban {
+  id          Int @id @default(autoincrement())
+  respondenId Int
+  areaId      Int
+
+  /// Indeks pilihan frekuensi 0–4 — skala sama persis dengan CMDQ
+  frekuensiKode  Int     @db.SmallInt
+  /// Bobot baku Cornell: 0 | 1,5 | 3,5 | 5 | 10
+  frekuensiBobot Decimal @db.Decimal(4, 1)
+
+  ketidaknyamananSkor Int? @db.SmallInt
+  gangguanSkor        Int? @db.SmallInt
+
+  /// skor = frekuensiBobot × ketidaknyamanan × gangguan  (rentang 0–90)
+  skor Decimal @db.Decimal(5, 2)
+
+  dibuatPada DateTime @default(now())
+  diubahPada DateTime @updatedAt
+
+  responden Responden  @relation(fields: [respondenId], references: [id], onDelete: Cascade)
+  area      AreaTangan @relation(fields: [areaId], references: [id])
+
+  @@unique([respondenId, areaId])
+  @@index([areaId])
+  @@map("chdq_jawaban")
+}
+
+model ChdqHasil {
+  id          Int @id @default(autoincrement())
+  respondenId Int @unique
+
+  /// Σ skor kedua tangan (0 – 90 × 12 = 0–1080)
+  skorTotal            Decimal        @db.Decimal(7, 2)
+  /// Skor per tangan (0–540). Disimpan terpisah karena keluhan tangan pada
+  /// pengguna komputer kerap satu sisi saja — mengikuti tangan yang memegang
+  /// tetikus — dan skor gabungan meratakan justru pola itu.
+  skorTanganKanan      Decimal        @db.Decimal(6, 2)
+  skorTanganKiri       Decimal        @db.Decimal(6, 2)
+  /// Tangan berskor lebih tinggi; NULL bila seri (termasuk saat keduanya 0)
+  tanganDominan        TanganChdq?
+  jumlahAreaBermasalah Int            @db.SmallInt
+  kategoriRisiko       KategoriRisiko
+  areaTertinggiId      Int?
+
+  /// Metode analisis Cornell 2 & 3 (metode 1 = `jumlahAreaBermasalah`,
+  /// metode 4 = `skorTotal`)
+  jumlahRating            Int     @db.SmallInt
+  jumlahFrekuensiBerbobot Decimal @db.Decimal(6, 2)
+  jumlahAreaNilaiHilang   Int     @default(0) @db.SmallInt
+
+  jumlahAreaDinilai Int     @db.SmallInt
+  ambangSedang      Decimal @db.Decimal(7, 2)
+  ambangTinggi      Decimal @db.Decimal(7, 2)
+
+  selesaiPada DateTime @default(now())
+  diubahPada  DateTime @updatedAt
+
+  responden     Responden   @relation(fields: [respondenId], references: [id], onDelete: Cascade)
+  areaTertinggi AreaTangan? @relation("AreaSkorTertinggi", fields: [areaTertinggiId], references: [id])
+
+  @@index([kategoriRisiko])
+  @@index([areaTertinggiId])
+  @@map("chdq_hasil")
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  4c. AMBANG KATEGORI RISIKO (tersil empiris)
+//
+//      Cornell tidak menyediakan cut-off dan menyatakannya eksplisit: kuesioner
+//      ini "for research screening purposes and not for diagnostic purposes".
+//      Batas RENDAH/SEDANG/TINGGI karena itu keputusan analisis peneliti, dan
+//      diperlakukan sebagai DATA yang bisa dihitung ulang — bukan konstanta di
+//      dalam kode.
+//
+//      Satu baris per instrumen. Setiap hasil responden merekam sendiri ambang
+//      yang dipakainya, sehingga menghitung ulang ambang tidak diam-diam
+//      mengubah makna hasil yang sudah dilaporkan.
+// ───────────────────────────────────────────────────────────────────────────
+
+model AmbangRisiko {
+  id        Int             @id @default(autoincrement())
+  instrumen InstrumenAmbang @unique
+
+  ambangSedang Decimal @db.Decimal(7, 2)
+  ambangTinggi Decimal @db.Decimal(7, 2)
+
+  /// Persentil yang dipakai (33,3 & 66,7 untuk tersil)
+  persentilSedang Decimal @db.Decimal(4, 1)
+  persentilTinggi Decimal @db.Decimal(4, 1)
+
+  /// Banyaknya responden yang skornya ikut dihitung
+  jumlahResponden Int     @db.SmallInt
+  /// FALSE berarti masih memakai nilai sementara dari `lib/*/skala.ts` karena
+  /// data belum mencukupi — dasbor menampilkannya sebagai peringatan.
+  dariData        Boolean @default(false)
+  /// Peringatan hasil perhitungan terakhir (mis. sebaran terlalu terpusat)
+  catatan         String? @db.Text
+
+  dihitungPada DateTime @default(now())
+  diubahPada   DateTime @updatedAt
+
+  @@map("ambang_risiko")
 }
 
 // ───────────────────────────────────────────────────────────────────────────

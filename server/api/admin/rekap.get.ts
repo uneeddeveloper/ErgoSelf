@@ -11,7 +11,7 @@ import { LABEL_KATEGORI_RISIKO } from '~~/lib/cmdq/skala'
 export default defineEventHandler(async (event) => {
   await wajibAdmin(event)
 
-  const { where, aktif } = bacaFilter(event)
+  const { where, aktif } = await bacaFilter(event)
   const q = getQuery(event)
 
   // `Math.trunc` wajib: Prisma menuntut Int untuk skip/take, dan `?halaman=1.5`
@@ -47,6 +47,7 @@ export default defineEventHandler(async (event) => {
         kategoriImt: true,
         statusProfil: true,
         statusCmdq: true,
+        statusChdq: true,
         statusSus: true,
         dibuatPada: true,
         cmdqHasil: {
@@ -55,6 +56,16 @@ export default defineEventHandler(async (event) => {
             kategoriRisiko: true,
             jumlahSegmenBermasalah: true,
             segmenTertinggi: { select: { nama: true } },
+          },
+        },
+        chdqHasil: {
+          select: {
+            skorTotal: true,
+            kategoriRisiko: true,
+            skorTanganKanan: true,
+            skorTanganKiri: true,
+            tanganDominan: true,
+            jumlahAreaBermasalah: true,
           },
         },
         susHasil: {
@@ -97,6 +108,7 @@ export default defineEventHandler(async (event) => {
         : null,
       statusProfil: r.statusProfil,
       statusCmdq: r.statusCmdq,
+      statusChdq: r.statusChdq,
       statusSus: r.statusSus,
       dibuatPada: r.dibuatPada,
       cmdq: r.cmdqHasil
@@ -107,6 +119,18 @@ export default defineEventHandler(async (event) => {
               LABEL_KATEGORI_RISIKO[r.cmdqHasil.kategoriRisiko],
             jumlahSegmenBermasalah: r.cmdqHasil.jumlahSegmenBermasalah,
             segmenTertinggi: r.cmdqHasil.segmenTertinggi?.nama ?? null,
+          }
+        : null,
+      chdq: r.chdqHasil
+        ? {
+            skorTotal: r.chdqHasil.skorTotal.toNumber(),
+            kategoriRisiko: r.chdqHasil.kategoriRisiko,
+            labelKategoriRisiko:
+              LABEL_KATEGORI_RISIKO[r.chdqHasil.kategoriRisiko],
+            skorTanganKanan: r.chdqHasil.skorTanganKanan.toNumber(),
+            skorTanganKiri: r.chdqHasil.skorTanganKiri.toNumber(),
+            tanganDominan: r.chdqHasil.tanganDominan,
+            jumlahAreaBermasalah: r.chdqHasil.jumlahAreaBermasalah,
           }
         : null,
       sus: r.susHasil

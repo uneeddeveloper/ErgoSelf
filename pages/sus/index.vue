@@ -96,7 +96,7 @@ async function kirim() {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="mx-auto max-w-3xl space-y-4">
     <UiProgres :tahap="nomorTahap('SUS')" keterangan="Kuesioner SUS" />
 
     <header>

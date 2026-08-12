@@ -10,6 +10,37 @@ Tanggal review: 2026-08-05 · Basis kode: ~8.800 baris, 16 endpoint, 13 halaman,
 
 ---
 
+## 0a. Status penyelesaian — revisi 2026-08-12
+
+> **Dokumen ini adalah catatan review per 5 Agustus 2026 dan sengaja TIDAK
+> ditulis ulang.** Isinya menjadi jejak audit: alasan sebuah keputusan diambil
+> hanya bisa dinilai bila keadaan yang melatarinya masih terbaca. Bagian di
+> bawah menyatakan apa yang sudah berubah sejak itu, sehingga tidak ada pembaca
+> yang mengira temuan lama masih terbuka.
+
+Revisi pembimbing tanggal 12 Agustus 2026 menutup tiga temuan pokok sekaligus,
+dengan mengambil **Opsi A** pada ADR instrumen (lihat §162):
+
+| Temuan lama | Status | Berkas penentu |
+|---|---|---|
+| Instrumen hibrida NBM×CMDQ | **Selesai** — kini 18 item CMDQ versi pekerja duduk sesuai `mmsquest.pdf` | `lib/cmdq/segmen.ts` |
+| Bobot frekuensi linier 0–3, 4 opsi | **Selesai** — 5 opsi, bobot baku Cornell 0/1,5/3,5/5/10 | `lib/cmdq/skala.ts` |
+| Ambang 252/504 tak terjangkau | **Selesai** — kategori kini dari tersil empiris yang dihitung peneliti dari panel admin | `lib/cmdq/ambang.ts`, tabel `ambang_risiko` |
+| Aturan missing value Cornell tidak ada | **Selesai** — pertanyaan lanjutan yang kosong memakai pengali 1, tidak lagi menolak seluruh pengiriman | `lib/cmdq/skoring.ts` |
+| Hanya 1 dari 4 metode analisis Cornell | **Selesai** — keempatnya dihitung, disimpan, dan diekspor | `CmdqHasil`, `ChdqHasil` |
+| Keluhan telapak tangan diringkas jadi 2 segmen NBM | **Selesai** — instrumen terpisah CHDQ, 6 area × 2 tangan | `lib/chdq/` |
+| Daftar divisi & jabatan hardcode | **Selesai** — CMS di panel admin, tabel `divisi` & `jabatan` | `pages/admin/pengaturan.vue` |
+
+Yang **belum** berubah dan masih berlaku sebagaimana tertulis di bawah: seluruh
+temuan keamanan, etik, aksesibilitas, dan UX.
+
+Konsekuensi data: revisi instrumen membuat jawaban CMDQ lama tidak dapat
+dipetakan ke instrumen baru — daftar item dan skala frekuensinya sama-sama
+berubah. Migrasi `20260812000000_...` menghapusnya dan mengembalikan responden
+terdampak ke status `BELUM`; alasannya diuraikan di kepala berkas migrasi itu.
+
+---
+
 ## 0. Ringkasan eksekutif
 
 Rekayasa perangkat lunaknya sehat. Yang tidak sehat adalah **metodologinya**,

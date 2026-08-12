@@ -40,11 +40,11 @@ export async function wajibResponden(event: H3Event): Promise<User> {
  */
 export async function wajibTahapSelesai(
   respondenId: number,
-  syarat: { profil?: boolean; cmdq?: boolean },
+  syarat: { profil?: boolean; cmdq?: boolean; chdq?: boolean },
 ): Promise<void> {
   const status = await prisma.responden.findUnique({
     where: { id: respondenId },
-    select: { statusProfil: true, statusCmdq: true },
+    select: { statusProfil: true, statusCmdq: true, statusChdq: true },
   })
 
   if (!status) {
@@ -63,6 +63,13 @@ export async function wajibTahapSelesai(
       statusCode: 409,
       statusMessage:
         'Isi kuesioner keluhan tubuh terlebih dahulu, agar penilaian aplikasi mencerminkan pengalaman Anda memakainya.',
+    })
+  }
+
+  if (syarat.chdq && status.statusChdq !== 'SELESAI') {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Isi kuesioner keluhan tangan terlebih dahulu.',
     })
   }
 }

@@ -47,7 +47,7 @@ const rekomendasi = computed(() => {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="mx-auto max-w-3xl space-y-4">
     <p v-if="pending" class="text-sm text-ink-500">Memuat hasil…</p>
 
     <div v-else-if="error && belumAdaData(error)" class="kartu space-y-3 p-6 text-center">

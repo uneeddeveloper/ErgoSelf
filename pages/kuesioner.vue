@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { nomorTahap } from '~~/lib/alur'
-import { LABEL_REGIO, SEGMEN_TUBUH, type RegioTubuh } from '~~/lib/cmdq/segmen'
+import {
+  LABEL_REGIO,
+  SEGMEN_TUBUH,
+  cariSegmen,
+  type RegioTubuh,
+} from '~~/lib/cmdq/segmen'
 import { SKOR_SEGMEN_MAKS } from '~~/lib/cmdq/skala'
 import { hitungSkorSegmen, kategorikanSkorSegmen } from '~~/lib/cmdq/skoring'
 
 /**
- * Modul 2 — Kuesioner keluhan tubuh (peta tubuh 28 segmen).
+ * Modul 2 — Kuesioner keluhan tubuh (peta tubuh 18 item CMDQ).
  *
  * Responden hanya perlu menandai bagian yang terasa nyeri. Saat dikirim,
- * seluruh 28 segmen tetap dilengkapi: bagian yang tidak ditandai otomatis
+ * seluruh 18 item tetap dilengkapi: bagian yang tidak ditandai otomatis
  * dikirim sebagai "tidak pernah" (frekuensi 0), sesuai aturan kelengkapan
  * instrumen yang divalidasi di server.
  */
@@ -23,6 +28,9 @@ interface JawabanSegmen {
 
 const jawaban = ref<Record<string, JawabanSegmen>>({})
 const segmenAktif = ref<string | null>(null)
+const detailSegmenAktif = computed(() =>
+  segmenAktif.value ? cariSegmen(segmenAktif.value) : undefined,
+)
 const mengirim = ref(false)
 const galatKirim = ref('')
 const terkirim = ref(false)
@@ -107,14 +115,18 @@ const daftarDitandai = computed(() =>
 )
 
 /**
- * Daftar seluruh 28 segmen, dikelompokkan per regio — jalur pilih alternatif.
+ * Daftar seluruh 18 item, dikelompokkan per regio — jalur pilih alternatif.
  *
  * Peta tubuh bukan satu-satunya cara menandai keluhan, dan tidak boleh menjadi
  * satu-satunya. Pada layar 360px area terkecil hanya sekitar 20×10 piksel;
  * responden yang jarinya kurang presisi, memakai papan tik, atau memakai
  * pembaca layar harus tetap bisa melaporkan keluhannya dengan andal.
  */
-const daftarTerbuka = ref(false)
+// TERBUKA secara bawaan. Figur Cornell berperbandingan ±1:3, jadi pada ponsel
+// ia setinggi ±800px: responden yang menggulir melewatinya akan tiba di daftar
+// ini dalam keadaan tertutup, lalu mengira satu-satunya cara mengisi adalah
+// mengetuk gambar yang baru saja ia lewati.
+const daftarTerbuka = ref(true)
 
 const segmenPerRegio = computed(() => {
   const urutan: RegioTubuh[] = [
@@ -163,7 +175,7 @@ async function kirim() {
   galatKirim.value = ''
   mengirim.value = true
 
-  // Lengkapi seluruh 28 segmen: yang tidak ditandai = tidak pernah.
+  // Lengkapi seluruh 18 item: yang tidak ditandai = tidak pernah.
   const isi = SEGMEN_TUBUH.map((s) => {
     const j = jawaban.value[s.kode]
     return j
@@ -198,20 +210,30 @@ async function kirim() {
   <div class="space-y-4">
     <UiProgres :tahap="nomorTahap('KUESIONER')" keterangan="Kemajuan Pengisian" />
 
-    <header class="text-center">
+    <header class="mx-auto max-w-xl text-center">
       <h1 class="text-[22px] font-extrabold text-ink">Peta Keluhan Tubuh</h1>
       <p class="mt-1.5 text-sm leading-relaxed text-ink-600">
-        Silakan pilih bagian tubuh yang Anda rasakan ada keluhan dalam
-        <strong>1 minggu terakhir</strong>.
+        Silakan pilih bagian tubuh yang Anda rasakan ada keluhan selama
+        <strong>satu minggu kerja terakhir</strong>.
       </p>
     </header>
 
-    <PetaTubuh
-      :skor="skorPerSegmen"
-      :aktif="segmenAktif"
-      @pilih="segmenAktif = $event"
-    />
+    <!--
+      Dua kolom di laptop: peta tetap terlihat sementara responden menelusuri
+      daftar bagian yang sudah ditandai. Pada satu kolom, peta terdorong ke
+      atas lipatan begitu daftarnya memanjang — padahal peta itulah yang
+      memberi tahu bagian mana yang belum tersentuh.
+    -->
+    <div class="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+      <div class="lg:sticky lg:top-24">
+        <PetaTubuh
+          :skor="skorPerSegmen"
+          :aktif="segmenAktif"
+          @pilih="segmenAktif = $event"
+        />
+      </div>
 
+      <div class="mt-4 space-y-4 lg:mt-0">
     <!--
       Jalur pilih alternatif. Area terkecil pada peta hanya sekitar 20×10 px di
       layar 360 px, jadi peta tidak boleh menjadi satu-satunya cara menandai
@@ -319,7 +341,7 @@ async function kirim() {
         <span class="min-w-0 flex-1">
           <span class="block text-sm font-bold text-ink">{{ d.nama }}</span>
           <span class="block text-xs text-ink-500">
-            Frekuensi {{ d.j.frekuensiKode }}/3 · Ketidaknyamanan
+            Frekuensi {{ d.j.frekuensiKode }}/4 · Ketidaknyamanan
             {{ d.j.ketidaknyamananSkor }}/3 · Gangguan {{ d.j.gangguanSkor }}/3
           </span>
         </span>
@@ -341,17 +363,21 @@ async function kirim() {
       {{ galatKirim }}
     </p>
 
-    <div class="space-y-2 pt-1">
-      <UiTombol varian="aksen" type="button" :disabled="mengirim" @click="kirim">
+    <div class="space-y-2 pt-1 sm:flex sm:flex-row-reverse sm:gap-2 sm:space-y-0">
+      <UiTombol varian="aksen" type="button" :disabled="mengirim" class="sm:w-auto" @click="kirim">
         {{ mengirim ? 'Menghitung…' : 'Selesai & Lihat Skor' }}
       </UiTombol>
-      <UiTombol varian="kedua" ke="/beranda">Kembali</UiTombol>
+      <UiTombol varian="kedua" ke="/beranda" class="sm:w-auto">Kembali</UiTombol>
+    </div>
+      </div>
     </div>
 
-    <PanelJawabanSegmen
-      v-if="segmenAktif"
+    <PanelJawabanKeluhan
+      v-if="segmenAktif && detailSegmenAktif"
       :key="segmenAktif"
-      :kode-segmen="segmenAktif"
+      label-jenis="Bagian tubuh"
+      :nama="detailSegmenAktif.nama"
+      :petunjuk="detailSegmenAktif.petunjuk"
       :awal="jawaban[segmenAktif] ?? null"
       @simpan="simpanSegmen"
       @hapus="hapusSegmen"

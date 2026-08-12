@@ -5,6 +5,7 @@ import {
   SKOR_TOTAL_MAKS,
 } from '~~/lib/cmdq/skala'
 import { LABEL_REGIO } from '~~/lib/cmdq/segmen'
+import { SKOR_CHDQ_MAKS } from '~~/lib/chdq/skala'
 import { TARGET_SUS } from '~~/lib/sus/skoring'
 
 /**
@@ -16,7 +17,7 @@ import { TARGET_SUS } from '~~/lib/sus/skoring'
  */
 export default defineEventHandler(async (event) => {
   await wajibAdmin(event)
-  const { where, aktif } = bacaFilter(event)
+  const { where, aktif } = await bacaFilter(event)
 
   // Himpunan responden yang lolos filter — dipakai semua agregat di bawah.
   const responden = await prisma.responden.findMany({
@@ -29,13 +30,21 @@ export default defineEventHandler(async (event) => {
     return {
       filter: aktif,
       jumlahResponden: 0,
-      progres: { profilSelesai: 0, cmdqSelesai: 0, susSelesai: 0, keduanya: 0 },
+      progres: {
+        profilSelesai: 0,
+        cmdqSelesai: 0,
+        chdqSelesai: 0,
+        susSelesai: 0,
+        keduanya: 0,
+      },
       keluhanPerSegmen: [],
       keluhanPerRegio: [],
       distribusiRisiko: [],
+      distribusiRisikoChdq: [],
       distribusiImt: [],
       distribusiJenisKelamin: [],
       cmdq: null,
+      chdq: null,
       sus: null,
     }
   }
@@ -43,12 +52,15 @@ export default defineEventHandler(async (event) => {
   const [
     profilSelesai,
     cmdqSelesai,
+    chdqSelesai,
     susSelesai,
     keduanya,
     perSegmen,
     segmenMaster,
     agregatCmdq,
     distribusiRisiko,
+    agregatChdq,
+    distribusiRisikoChdq,
     agregatSus,
     distribusiSus,
     distribusiImt,
@@ -56,6 +68,7 @@ export default defineEventHandler(async (event) => {
   ] = await Promise.all([
     prisma.responden.count({ where: { ...where, statusProfil: 'SELESAI' } }),
     prisma.responden.count({ where: { ...where, statusCmdq: 'SELESAI' } }),
+    prisma.responden.count({ where: { ...where, statusChdq: 'SELESAI' } }),
     prisma.responden.count({ where: { ...where, statusSus: 'SELESAI' } }),
     prisma.responden.count({
       where: { ...where, statusCmdq: 'SELESAI', statusSus: 'SELESAI' },
@@ -83,6 +96,24 @@ export default defineEventHandler(async (event) => {
       _count: { _all: true },
     }),
     prisma.cmdqHasil.groupBy({
+      by: ['kategoriRisiko'],
+      where: { respondenId: { in: idResponden } },
+      _count: { _all: true },
+    }),
+
+    prisma.chdqHasil.aggregate({
+      where: { respondenId: { in: idResponden } },
+      _avg: {
+        skorTotal: true,
+        skorTanganKanan: true,
+        skorTanganKiri: true,
+        jumlahAreaBermasalah: true,
+      },
+      _min: { skorTotal: true },
+      _max: { skorTotal: true },
+      _count: { _all: true },
+    }),
+    prisma.chdqHasil.groupBy({
       by: ['kategoriRisiko'],
       where: { respondenId: { in: idResponden } },
       _count: { _all: true },
@@ -174,7 +205,7 @@ export default defineEventHandler(async (event) => {
   return {
     filter: aktif,
     jumlahResponden: idResponden.length,
-    progres: { profilSelesai, cmdqSelesai, susSelesai, keduanya },
+    progres: { profilSelesai, cmdqSelesai, chdqSelesai, susSelesai, keduanya },
 
     keluhanPerSegmen: keluhanLengkap,
     keluhanPerRegio,
@@ -184,6 +215,14 @@ export default defineEventHandler(async (event) => {
       label: LABEL_KATEGORI_RISIKO[k],
       jumlah:
         distribusiRisiko.find((d) => d.kategoriRisiko === k)?._count._all ?? 0,
+    })),
+
+    distribusiRisikoChdq: (['RENDAH', 'SEDANG', 'TINGGI'] as const).map((k) => ({
+      kategori: k,
+      label: LABEL_KATEGORI_RISIKO[k],
+      jumlah:
+        distribusiRisikoChdq.find((d) => d.kategoriRisiko === k)?._count._all ??
+        0,
     })),
 
     // Responden yang belum menyelesaikan profil punya kategoriImt = null;
@@ -231,6 +270,35 @@ export default defineEventHandler(async (event) => {
               (agregatCmdq._avg.jumlahSegmenBermasalah ?? 0).toFixed(2),
             ),
             skorTotalMaks: SKOR_TOTAL_MAKS,
+          }
+        : null,
+
+    chdq:
+      agregatChdq._count._all > 0
+        ? {
+            n: agregatChdq._count._all,
+            skorRataRata: Number(
+              (agregatChdq._avg.skorTotal?.toNumber() ?? 0).toFixed(2),
+            ),
+            skorTerendah: Number(
+              (agregatChdq._min.skorTotal?.toNumber() ?? 0).toFixed(2),
+            ),
+            skorTertinggi: Number(
+              (agregatChdq._max.skorTotal?.toNumber() ?? 0).toFixed(2),
+            ),
+            // Rata-rata per tangan dilaporkan terpisah karena keluhan tangan
+            // pada pengguna komputer kerap satu sisi saja; rata-rata gabungan
+            // meratakan justru pola yang ingin ditemukan.
+            rataTanganKanan: Number(
+              (agregatChdq._avg.skorTanganKanan?.toNumber() ?? 0).toFixed(2),
+            ),
+            rataTanganKiri: Number(
+              (agregatChdq._avg.skorTanganKiri?.toNumber() ?? 0).toFixed(2),
+            ),
+            rataAreaBermasalah: Number(
+              (agregatChdq._avg.jumlahAreaBermasalah ?? 0).toFixed(2),
+            ),
+            skorTotalMaks: SKOR_CHDQ_MAKS,
           }
         : null,
 

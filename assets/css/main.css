@@ -67,6 +67,31 @@
   --shadow-kartu: 0 6px 18px rgb(16 32 26 / 0.05);
   --shadow-layar: 0 18px 44px rgb(16 32 26 / 0.14);
   --shadow-timbul: 0 10px 24px rgb(16 32 26 / 0.16);
+
+  /* ─── Tipografi ────────────────────────────────────────────────────────
+     Tumpukan cadangan sengaja panjang: aplikasi responden diisi di lapangan
+     dan harus tetap terbaca meski berkas font tidak pernah sampai. */
+  --font-sans:
+    'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-mono:
+    'IBM Plex Mono', ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+
+  /* ─── Palet konsol peneliti ────────────────────────────────────────────
+     HANYA dipakai layar admin (lihat blok "Konsol peneliti" di bawah).
+     Nilainya sengaja lebih pekat dan lebih netral daripada tema responden. */
+  --color-rail: #0b1f18; /* bilah navigasi kiri */
+  --color-rail-2: #123227; /* permukaan terangkat di dalam bilah */
+  --color-rail-garis: #1e4535;
+  --color-rail-teks: #8fae9e;
+  --color-kertas: #f4f6f2; /* permukaan kerja, bukan sage */
+  --color-kertas-garis: #e3e8e0;
+  --color-kertas-kisi: rgb(16 32 26 / 0.045);
+
+  /* Radius konsol: TAJAM. Radius 22–32px tema responden membuat tabel padat
+     terlihat seperti kartu mengambang, bukan data. */
+  --radius-konsol: 10px;
+  --radius-konsol-kecil: 6px;
 }
 
 html {
@@ -224,6 +249,205 @@ body {
   font-size: 0.75rem;
   font-weight: 700;
   white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   KONSOL PENELITI — bahasa visual terpisah untuk layar admin
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Panel admin SENGAJA tidak memakai bahasa visual aplikasi responden, dan itu
+   bukan inkonsistensi yang terlewat.
+
+   Aplikasi responden diisi seorang pekerja di ponsel, sekali seumur penelitian:
+   ia perlu terasa lapang, hangat, dan tidak mengintimidasi — karena itu latar
+   sage, kartu mengambang radius 32px, dan tombol pil selebar layar.
+
+   Panel admin dipakai peneliti di laptop, berjam-jam, untuk membaca tabel
+   padat dan membandingkan angka. Bahasa yang sama di situ justru merugikan:
+   radius besar dan bayangan tebal memecah tabel menjadi kartu-kartu terapung,
+   sementara latar bergradien membuat grafik sulit dibaca. Yang dibutuhkan
+   permukaan datar, garis rambut, kepadatan tinggi, dan angka bertipe tabular.
+
+   Semua di bawah berawalan `konsol-` supaya batas kedua bahasa itu terlihat
+   di dalam markup, bukan hanya di kepala pembacanya. */
+
+/* Ground kerja: kertas hangat dengan kisi seperti kertas milimeter.
+   Kisinya berkontras sangat rendah (4,5%) — hadir sebagai tekstur, tidak
+   pernah bersaing dengan garis grafik. */
+@utility konsol-ground {
+  background-color: var(--color-kertas);
+  background-image:
+    linear-gradient(var(--color-kertas-kisi) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-kertas-kisi) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-position: -1px -1px;
+}
+
+/* Kartu konsol: datar, bergaris rambut, tanpa bayangan.
+   Kedalaman dinyatakan lewat garis dan latar, bukan blur — pada layar penuh
+   berisi delapan kartu, bayangan menumpuk menjadi kabut. */
+@utility konsol-kartu {
+  background: #fff;
+  border: 1px solid var(--color-kertas-garis);
+  border-radius: var(--radius-konsol);
+}
+
+/* Kepala kartu: strip pemisah untuk judul + aksi */
+@utility konsol-kepala {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.875rem 1.125rem;
+  border-bottom: 1px solid var(--color-kertas-garis);
+}
+
+/* Label seksi konsol: mono, kecil, berjarak — penanda "ini metadata" */
+@utility konsol-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+
+/* Angka: mono + tabular supaya kolom skor berbaris tanpa diatur satu-satu */
+@utility konsol-angka {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Isian & pilihan konsol: rendah, bergaris tegas, sudut tajam */
+@utility konsol-isian {
+  width: 100%;
+  height: 34px;
+  padding: 0 0.625rem;
+  border: 1px solid var(--color-garis-kuat);
+  border-radius: var(--radius-konsol-kecil);
+  background: #fff;
+  font-size: 0.8125rem;
+  color: var(--color-ink);
+  outline: none;
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.konsol-isian:focus-visible,
+.konsol-isian:focus {
+  border-color: var(--color-brand-600);
+  box-shadow: 0 0 0 3px rgb(28 76 59 / 0.12);
+}
+
+/* Tombol konsol — tiga tingkat, semuanya setinggi 34px agar sebaris rapi */
+@utility konsol-tombol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 34px;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-konsol-kecil);
+  border: 1px solid var(--color-garis-kuat);
+  background: #fff;
+  color: var(--color-ink-700);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+@utility konsol-tombol-utama {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 34px;
+  padding: 0 0.875rem;
+  border-radius: var(--radius-konsol-kecil);
+  border: 1px solid var(--color-brand-600);
+  background: var(--color-brand-600);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 0.12s;
+}
+
+/* Lencana status konsol: persegi, bukan pil */
+@utility konsol-lencana {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.4375rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Tabel data padat. Kepala lengket supaya nama kolom tidak hilang saat
+   menggulir 200 baris — tanpa itu kolom skor dan kolom SUS tertukar dalam
+   pembacaan, dan salah bacanya tidak meninggalkan jejak apa pun. */
+@utility konsol-tabel {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8125rem;
+  text-align: left;
+}
+.konsol-tabel thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-panel-2);
+  border-bottom: 1px solid var(--color-garis-kuat);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+  white-space: nowrap;
+}
+.konsol-tabel tbody td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-kertas-garis);
+  vertical-align: middle;
+}
+.konsol-tabel tbody tr:last-child td {
+  border-bottom: 0;
+}
+.konsol-tabel tbody tr:hover td {
+  background: var(--color-panel-2);
+}
+.konsol-tabel .angka {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Tautan navigasi pada bilah kiri */
+@utility rail-tautan {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-konsol-kecil);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-rail-teks);
+  transition:
+    background-color 0.12s,
+    color 0.12s;
 }
 
 @media (prefers-reduced-motion: reduce) {

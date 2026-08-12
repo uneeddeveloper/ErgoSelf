@@ -23,7 +23,10 @@ const skema = z.object({
 
 export default defineEventHandler(async (event) => {
   const sesi = await wajibResponden(event)
-  await wajibTahapSelesai(sesi.id, { profil: true, cmdq: true })
+  // CHDQ ikut disyaratkan sejak kuesioner tangan menjadi bagian instrumen.
+  // SUS menilai APLIKASINYA, jadi ia harus datang setelah responden memakai
+  // seluruh instrumen — bukan setelah sebagian saja.
+  await wajibTahapSelesai(sesi.id, { profil: true, cmdq: true, chdq: true })
 
   const isi = skema.safeParse(await readBody(event))
 

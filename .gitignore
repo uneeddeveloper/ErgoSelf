@@ -22,3 +22,6 @@ logs
 .env
 .env.*
 !.env.example
+
+# Cadangan basis data — memuat data kesehatan responden, tidak boleh masuk repo
+cadangan/

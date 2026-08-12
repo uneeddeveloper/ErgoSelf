@@ -7,6 +7,7 @@ import {
   SKOR_TOTAL_MAKS,
 } from '~~/lib/cmdq/skala'
 import { LABEL_REGIO, type RegioTubuh } from '~~/lib/cmdq/segmen'
+import { SKOR_CHDQ_MAKS } from '~~/lib/chdq/skala'
 import { kategorikanSkorSegmen } from '~~/lib/cmdq/skoring'
 import { LABEL_INTERPRETASI, TARGET_SUS } from '~~/lib/sus/skoring'
 import { susunRekomendasi } from '~~/lib/rekomendasi'
@@ -32,9 +33,15 @@ export default defineEventHandler(async (event) => {
       olahraga: true,
       statusProfil: true,
       statusCmdq: true,
+      statusChdq: true,
       statusSus: true,
       cmdqHasil: {
         include: { segmenTertinggi: { select: { kode: true, nama: true } } },
+      },
+      chdqHasil: {
+        include: {
+          areaTertinggi: { select: { kode: true, nama: true, huruf: true, tangan: true } },
+        },
       },
       susHasil: true,
     },
@@ -146,6 +153,34 @@ export default defineEventHandler(async (event) => {
       ),
     },
 
+    /**
+     * Hasil keluhan tangan. `null` bila responden belum mengisinya — bukan
+     * galat, karena CHDQ datang setelah peta tubuh dan ringkasan sudah bisa
+     * dibuka lebih dulu.
+     */
+    chdq: responden.chdqHasil
+      ? {
+          skorTotal: responden.chdqHasil.skorTotal.toNumber(),
+          skorTotalMaks: SKOR_CHDQ_MAKS,
+          skorTanganKanan: responden.chdqHasil.skorTanganKanan.toNumber(),
+          skorTanganKiri: responden.chdqHasil.skorTanganKiri.toNumber(),
+          tanganDominan: responden.chdqHasil.tanganDominan,
+          kategoriRisiko: responden.chdqHasil.kategoriRisiko,
+          labelKategoriRisiko:
+            LABEL_KATEGORI_RISIKO[responden.chdqHasil.kategoriRisiko],
+          jumlahAreaBermasalah: responden.chdqHasil.jumlahAreaBermasalah,
+          jumlahAreaDinilai: responden.chdqHasil.jumlahAreaDinilai,
+          areaTertinggi: responden.chdqHasil.areaTertinggi
+            ? {
+                kode: responden.chdqHasil.areaTertinggi.kode,
+                nama: responden.chdqHasil.areaTertinggi.nama,
+                huruf: responden.chdqHasil.areaTertinggi.huruf,
+                tangan: responden.chdqHasil.areaTertinggi.tangan,
+              }
+            : null,
+        }
+      : null,
+
     sus: responden.susHasil
       ? {
           skorTotal: responden.susHasil.skorTotal.toNumber(),
@@ -159,6 +194,9 @@ export default defineEventHandler(async (event) => {
       : null,
 
     rekomendasi,
-    lengkap: responden.statusCmdq === 'SELESAI' && responden.statusSus === 'SELESAI',
+    lengkap:
+      responden.statusCmdq === 'SELESAI' &&
+      responden.statusChdq === 'SELESAI' &&
+      responden.statusSus === 'SELESAI',
   }
 })

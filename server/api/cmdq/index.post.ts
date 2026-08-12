@@ -27,7 +27,7 @@ const skemaJawaban = z.object({
     .array(
       z.object({
         kodeSegmen: z.string().min(1),
-        frekuensiKode: z.number().int(),
+        frekuensiKode: z.number().int().nullable().optional(),
         ketidaknyamananSkor: z.number().int().nullable().optional(),
         gangguanSkor: z.number().int().nullable().optional(),
       }),
@@ -48,10 +48,17 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Ambang tersil yang berlaku diambil LEBIH DAHULU, karena kategori risiko
+  // ikut dihitung oleh fungsi murni di bawah.
+  const ambang = await bacaAmbang('CMDQ')
+
   // ── Hitung & validasi (fungsi murni, tanpa sentuhan database) ──────────
   let hasil: ReturnType<typeof hitungSkorCmdq>
   try {
-    hasil = hitungSkorCmdq(isi.data.jawaban as JawabanSegmenInput[])
+    hasil = hitungSkorCmdq(isi.data.jawaban as JawabanSegmenInput[], {
+      ambangSedang: ambang.ambangSedang,
+      ambangTinggi: ambang.ambangTinggi,
+    })
   } catch (error) {
     if (error instanceof GalatJawabanCmdq) {
       throw createError({
@@ -81,7 +88,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // ── Simpan dalam satu transaksi ────────────────────────────────────────
-  // Batas waktu dinaikkan dari bawaan Prisma: transaksi ini menulis 28 baris
+  // Batas waktu dinaikkan dari bawaan Prisma: transaksi ini menulis 18 baris
   // plus rekap lewat beberapa perjalanan bolak-balik. Bila bawaan 5 detik
   // terlampaui, seluruh jawaban responden dibatalkan dan ia melihat galat 500
   // tanpa tahu apakah datanya tersimpan.
@@ -108,6 +115,11 @@ export default defineEventHandler(async (event) => {
       segmenTertinggiId: hasil.segmenTertinggi
         ? idPerKode.get(hasil.segmenTertinggi.kodeSegmen)!
         : null,
+      jumlahRating: hasil.metode.jumlahRating,
+      jumlahFrekuensiBerbobot: new Prisma.Decimal(
+        hasil.metode.jumlahFrekuensiBerbobot,
+      ),
+      jumlahSegmenNilaiHilang: hasil.jumlahSegmenNilaiHilang,
       jumlahSegmenDinilai: hasil.jumlahSegmenDinilai,
       ambangSedang: new Prisma.Decimal(hasil.ambangSedang),
       ambangTinggi: new Prisma.Decimal(hasil.ambangTinggi),

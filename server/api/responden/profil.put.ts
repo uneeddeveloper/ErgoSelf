@@ -37,13 +37,38 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // ── Hubungkan ke master divisi/jabatan ─────────────────────────────────
+  //
+  // Form mengirim NAMA, bukan id — baik ketika responden memilih dari daftar
+  // maupun ketika ia mengetik sendiri lewat "Lainnya". Server yang menentukan
+  // mana di antara keduanya, dengan mencocokkan ke tabel master.
+  //
+  // Pencocokan sengaja TIDAK dibatasi pada entri `aktif`. Responden yang
+  // membuka form lalu mengisinya beberapa menit kemudian bisa mengirimkan
+  // pilihan yang baru saja dinonaktifkan peneliti; menolaknya berarti
+  // memaksanya mengisi ulang, dan menganggapnya "Lainnya" berarti mencatat
+  // pilihan baku sebagai teks bebas. Keduanya lebih buruk daripada menautkan
+  // ke entri yang memang ia lihat di layarnya.
+  const [divisiRef, jabatanRef] = await Promise.all([
+    prisma.divisi.findUnique({
+      where: { nama: data.divisi },
+      select: { id: true },
+    }),
+    prisma.jabatan.findUnique({
+      where: { nama: data.jabatan },
+      select: { id: true },
+    }),
+  ])
+
   const responden = await prisma.responden.update({
     where: { id: sesi.id },
     data: {
       usia: data.usia,
       jenisKelamin: data.jenisKelamin,
       divisi: data.divisi,
+      divisiId: divisiRef?.id ?? null,
       jabatan: data.jabatan,
+      jabatanId: jabatanRef?.id ?? null,
       unitKerja: data.unitKerja ?? null,
       masaKerjaTahun: data.masaKerjaTahun,
       durasiKomputerJamPerHari: data.durasiKomputerJamPerHari,

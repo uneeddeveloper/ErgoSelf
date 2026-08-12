@@ -23,8 +23,9 @@ export const TAHAP_ALUR: readonly Tahap[] = [
   { nomor: 1, kode: 'DAFTAR', label: 'Pendaftaran' },
   { nomor: 2, kode: 'PROFIL', label: 'Profil Pekerja' },
   { nomor: 3, kode: 'KUESIONER', label: 'Peta Keluhan Tubuh' },
-  { nomor: 4, kode: 'SUS', label: 'Penilaian Aplikasi' },
-  { nomor: 5, kode: 'RINGKASAN', label: 'Ringkasan Akhir' },
+  { nomor: 4, kode: 'TANGAN', label: 'Keluhan Tangan' },
+  { nomor: 5, kode: 'SUS', label: 'Penilaian Aplikasi' },
+  { nomor: 6, kode: 'RINGKASAN', label: 'Ringkasan Akhir' },
 ] as const
 
 export const TOTAL_TAHAP = TAHAP_ALUR.length

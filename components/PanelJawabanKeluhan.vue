@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { cariSegmen } from '~~/lib/cmdq/segmen'
 import {
   SKALA_FREKUENSI,
   SKALA_GANGGUAN,
@@ -10,8 +9,19 @@ import { hitungSkorSegmen, kategorikanSkorSegmen } from '~~/lib/cmdq/skoring'
 import type { OpsiPilihan } from '~~/types/ui'
 
 /**
- * Lembar pertanyaan untuk satu segmen tubuh — muncul setelah responden
- * menyentuh bagian tubuh pada peta.
+ * Lembar tiga pertanyaan untuk SATU bagian yang dikeluhkan — muncul setelah
+ * responden menyentuh sebuah bagian pada peta tubuh (CMDQ) atau diagram
+ * telapak tangan (CHDQ).
+ *
+ * SATU KOMPONEN UNTUK DUA INSTRUMEN, dan itu bukan penghematan yang dipaksakan:
+ * Cornell memakai tiga pertanyaan, lima opsi frekuensi, bobot, dan rentang skor
+ * yang persis sama pada CMDQ maupun CHDQ — halaman resmi CHDQ mengulang
+ * instruksi skoringnya kata demi kata. Menyalin komponen ini menjadi dua adalah
+ * cara paling mudah membuat kedua instrumen lambat laun menanyakan hal yang
+ * sedikit berbeda, dan selisihnya tidak akan terlihat sampai analisis.
+ *
+ * Yang berbeda hanya penyebutan bagiannya, karena itu `nama`, `petunjuk`, dan
+ * `labelJenis` diterima sebagai prop, bukan dicari sendiri dari katalog.
  *
  * Pertanyaan 2 dan 3 hanya ditampilkan bila responden menjawab pernah
  * mengalami keluhan, sesuai aturan instrumen (bila "tidak pernah", dua
@@ -19,7 +29,12 @@ import type { OpsiPilihan } from '~~/types/ui'
  */
 
 const props = defineProps<{
-  kodeSegmen: string
+  /** Nama bagian yang ditanyakan, mis. "Bahu kanan" atau "Area A (kanan)" */
+  nama: string
+  /** Penjelasan batas anatomis, bila ada */
+  petunjuk?: string | null
+  /** Penyebut kategori bagian, mis. "Bagian tubuh" atau "Area tangan" */
+  labelJenis?: string
   awal?: {
     frekuensiKode: number
     ketidaknyamananSkor: number | null
@@ -38,8 +53,6 @@ const emit = defineEmits<{
   hapus: []
   tutup: []
 }>()
-
-const segmen = computed(() => cariSegmen(props.kodeSegmen))
 
 /**
  * Manajemen fokus dialog.
@@ -166,8 +179,7 @@ function simpan() {
 }
 
 function mintaHapus() {
-  const nama = segmen.value?.nama ?? 'bagian ini'
-  if (window.confirm(`Hapus jawaban untuk ${nama}?`)) emit('hapus')
+  if (window.confirm(`Hapus jawaban untuk ${props.nama}?`)) emit('hapus')
 }
 
 function padaEscape(e: KeyboardEvent) {
@@ -183,7 +195,7 @@ onUnmounted(() => document.removeEventListener('keydown', padaEscape))
     class="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4"
     role="dialog"
     aria-modal="true"
-    :aria-label="`Pertanyaan untuk ${segmen?.nama}`"
+    :aria-label="`Pertanyaan untuk ${props.nama}`"
     @click.self="emit('tutup')"
     @keydown="jagaFokus"
   >
@@ -196,16 +208,16 @@ onUnmounted(() => document.removeEventListener('keydown', padaEscape))
         class="sticky top-0 flex items-start gap-3 border-b border-garis bg-white px-5 py-4"
       >
         <div class="min-w-0 flex-1">
-          <p class="label-seksi">Bagian tubuh</p>
+          <p class="label-seksi">{{ props.labelJenis ?? 'Bagian tubuh' }}</p>
           <h2
             ref="judul"
             tabindex="-1"
             class="mt-0.5 text-lg font-extrabold text-ink outline-none"
           >
-            {{ segmen?.nama }}
+            {{ props.nama }}
           </h2>
-          <p v-if="segmen?.petunjuk" class="mt-1 text-xs text-ink-500">
-            {{ segmen.petunjuk }}
+          <p v-if="props.petunjuk" class="mt-1 text-xs text-ink-500">
+            {{ props.petunjuk }}
           </p>
         </div>
         <button
@@ -223,9 +235,17 @@ onUnmounted(() => document.removeEventListener('keydown', padaEscape))
         <fieldset>
           <legend class="text-sm font-bold text-ink">
             1. Seberapa sering Anda merasakan keluhan pada
-            {{ segmen?.nama.toLowerCase() }}?
+            {{ props.nama.toLowerCase() }}?
           </legend>
-          <p class="mt-0.5 mb-2 text-xs text-ink-500">Selama 7 hari terakhir</p>
+          <!--
+            "Minggu kerja terakhir", bukan "7 hari terakhir". Form Cornell
+            berbunyi "During the last work week"; pada responden yang libur di
+            akhir pekan, tujuh hari kalender memasukkan dua hari tanpa paparan
+            kerja — persis periode yang instrumen ini rancang untuk dikecualikan.
+          -->
+          <p class="mt-0.5 mb-2 text-xs text-ink-500">
+            Selama satu minggu kerja terakhir
+          </p>
           <UiPilihan
             v-model="frekuensi"
             nama="frekuensi"

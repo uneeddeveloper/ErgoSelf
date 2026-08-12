@@ -72,6 +72,16 @@ export default defineEventHandler(async (event) => {
     persenDariMaks: Number(((skorTotal / SKOR_TOTAL_MAKS) * 100).toFixed(2)),
     ambangSedang: rekap.ambangSedang.toNumber(),
     ambangTinggi: rekap.ambangTinggi.toNumber(),
+    // Keempat metode analisis Cornell, dibaca dari rekap yang tersimpan —
+    // bukan dihitung ulang di sini — supaya angka di halaman hasil, dasbor,
+    // dan berkas ekspor berasal dari satu perhitungan yang sama.
+    metode: {
+      jumlahGejala: rekap.jumlahSegmenBermasalah,
+      jumlahRating: rekap.jumlahRating,
+      jumlahFrekuensiBerbobot: rekap.jumlahFrekuensiBerbobot.toNumber(),
+      skorPerkalian: skorTotal,
+    },
+    jumlahSegmenNilaiHilang: rekap.jumlahSegmenNilaiHilang,
     selesaiPada: rekap.selesaiPada,
   }
 })

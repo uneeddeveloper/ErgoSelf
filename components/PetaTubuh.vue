@@ -1,42 +1,43 @@
 <script setup lang="ts">
 import {
-  AREA_SENTUH,
-  BERKAS_CAHAYA,
-  CINCIN,
-  DETAIL_TAMPAK,
-  FIGUR_TUBUH,
-  JUDUL_TAMPAK,
+  AREA_SEGMEN,
+  JALUR_DETAIL,
+  JALUR_TUBUH,
   LEBAR_KANVAS,
-  PARTIKEL,
-  PUSAT_TAMPAK,
   TINGGI_KANVAS,
-  type Tampak,
+  pusatArea,
 } from '~~/lib/cmdq/bodymap'
 import { SEGMEN_TUBUH } from '~~/lib/cmdq/segmen'
-import { kategorikanSkorSegmen } from '~~/lib/cmdq/skoring'
+import { AMBANG_SEGMEN_SEDANG, AMBANG_SEGMEN_TINGGI } from '~~/lib/cmdq/skala'
 
 /**
- * Peta tubuh interaktif 28 segmen Nordic Body Map, bergaya hologram.
+ * Peta tubuh interaktif 18 item CMDQ.
  *
- * Responden menyentuh bagian tubuh yang terasa nyeri; warna area berubah
- * mengikuti tingkat keluhan yang sudah diisi. Setiap area juga dapat dicapai
- * lewat papan tik (Tab + Enter) dan punya `aria-label` berisi nama segmen
- * serta status jawabannya.
+ * Figurnya diekstrak langsung dari `mmsquest.pdf` milik Cornell (lihat
+ * `lib/cmdq/bodymap.ts`) — garis anatomis sungguhan, bukan susunan persegi
+ * membulat seperti versi sebelumnya.
  *
- * Latar gelap dipilih supaya guratan tubuh dan sorotan warna keluhan terbaca
- * jelas — termasuk di layar HP yang dipakai di lantai produksi.
+ * FIGUR INI TAMPAK BELAKANG, sehingga sisi kanan layar adalah sisi kanan
+ * responden. Tidak ada efek cermin. Alasannya diuraikan di modul geometri;
+ * yang penting di sini: jangan menambahkan pembalikan kiri–kanan "supaya
+ * terasa seperti bercermin", karena itu akan menukar seluruh pasangan
+ * kiri/kanan pada data.
+ *
+ * Latar terang dan garis gelap dipilih menggantikan gaya hologram lama: seni
+ * garis setipis ini hilang di atas latar gelap, dan warna keluhan justru harus
+ * menjadi satu-satunya hal yang menyala.
  */
 
 const props = withDefaults(
   defineProps<{
-    /** Skor per kode segmen; kunci yang tidak ada berarti tidak ada keluhan */
+    /** Skor per kode item; kunci yang tidak ada berarti tidak ada keluhan */
     skor: Record<string, number>
-    /** Segmen yang sedang dibuka panel pertanyaannya */
+    /** Item yang sedang dibuka panel pertanyaannya */
     aktif?: string | null
     /**
      * Bila false, peta hanya menampilkan hasil: tanpa `role="button"`,
      * tanpa `tabindex`, tanpa penangan sentuh. Dipakai di halaman ringkasan
-     * yang mencetak laporan — di sana 28 tombol yang tidak melakukan apa-apa
+     * yang mencetak laporan — di sana 18 tombol yang tidak melakukan apa-apa
      * hanya menjadi perhentian tab yang membingungkan.
      */
     interaktif?: boolean
@@ -46,445 +47,144 @@ const props = withDefaults(
 
 const emit = defineEmits<{ pilih: [kode: string] }>()
 
-/**
- * Smart focus — saat responden mengarahkan kursor/jari ke satu segmen,
- * segmen itu diperbesar sedikit dan area lain diredupkan, sehingga jelas
- * bagian mana yang akan terpilih. Penting pada layar HP, di mana jari
- * menutupi sebagian gambar.
- */
 const disorot = ref<string | null>(null)
-
-/** Segmen yang sedang jadi pusat perhatian: disorot > sedang aktif */
 const fokus = computed(() => disorot.value ?? props.aktif ?? null)
 
-/** Area lain diredupkan hanya ketika ada yang sedang disorot jari/kursor. */
-function opasitas(kode: string): number {
-  if (!disorot.value) return 1
-  return disorot.value === kode ? 1 : 0.3
-}
+const segmen = new Map(SEGMEN_TUBUH.map((s) => [s.kode, s]))
 
-/** Perbesar sedikit segmen yang sedang difokus, berporos di tengah area. */
-function transformasi(a: { x: number; y: number; w: number; h: number }, kode: string) {
-  if (fokus.value !== kode) return undefined
-  const cx = a.x + a.w / 2
-  const cy = a.y + a.h / 2
-  return `translate(${cx} ${cy}) scale(1.18) translate(${-cx} ${-cy})`
-}
-
-const namaSegmen = new Map(SEGMEN_TUBUH.map((s) => [s.kode, s.nama]))
-
-/**
- * Penjelasan pembeda untuk segmen yang namanya rancu bagi orang awam —
- * terutama "bokong" (buttock) vs "pantat" (bottom).
- *
- * Teks ini juga tampil di panel pertanyaan, tetapi panel itu baru terbuka
- * SETELAH responden mengetuk. Artinya orang yang tidak bisa membedakan keduanya
- * harus menebak dulu untuk membaca penjelasan yang justru dimaksudkan mencegah
- * tebakan itu. Karena itu penjelasannya ikut dibawa ke label peta, sehingga
- * terbaca lebih dulu lewat sorotan, fokus papan tik, maupun pembaca layar.
- */
-const petunjukSegmen = new Map(
-  SEGMEN_TUBUH.filter((s) => s.petunjuk).map((s) => [s.kode, s.petunjuk!]),
+const area = computed(() =>
+  AREA_SEGMEN.map((a) => {
+    const s = segmen.get(a.kode)
+    return {
+      ...a,
+      nama: s?.nama ?? a.kode,
+      /**
+       * Penjelasan pembeda ikut dibawa ke label peta, bukan hanya ke panel
+       * pertanyaan. Panel itu baru terbuka SETELAH responden mengetuk;
+       * artinya orang yang belum yakin batas anatomisnya harus menebak dulu
+       * untuk membaca penjelasan yang justru dimaksudkan mencegah tebakan.
+       */
+      petunjuk: s?.petunjuk ?? null,
+      skor: props.skor[a.kode] ?? 0,
+      pusat: pusatArea(a),
+    }
+  }),
 )
 
-/**
- * Palet hologram: isian tembus pandang + garis menyala. `pendar` menandai
- * status yang perlu efek cahaya — hanya dipakai pada segmen berkeluhan supaya
- * penapis blur SVG tidak dijalankan 28 kali sekaligus.
- */
-const GAYA = {
-  BELUM: {
-    isi: 'rgba(52,211,153,0.07)',
-    garis: 'rgba(167,243,208,0.35)',
-    tebal: 1,
-    pendar: false,
-  },
-  RENDAH: {
-    isi: 'rgba(205,240,90,0.28)',
-    garis: '#cdf05a',
-    tebal: 1.6,
-    pendar: true,
-  },
-  SEDANG: {
-    isi: 'rgba(251,191,36,0.30)',
-    garis: '#fcd34d',
-    tebal: 1.6,
-    pendar: true,
-  },
-  TINGGI: {
-    isi: 'rgba(244,98,58,0.38)',
-    garis: '#ff9270',
-    tebal: 1.8,
-    pendar: true,
-  },
-} as const
-
-type StatusArea = keyof typeof GAYA
-
-/**
- * Segmen tanpa entri dan segmen berskor 0 diperlakukan sama, karena memang
- * sama: keduanya berarti responden tidak melaporkan keluhan di sana. Halaman
- * kuesioner mengirim segmen tak tertandai sebagai frekuensi 0, jadi tidak ada
- * keadaan "belum dijawab" yang sebenarnya.
- */
-function status(kode: string): StatusArea {
-  const nilai = props.skor[kode]
-  if (nilai === undefined || nilai <= 0) return 'BELUM'
-  return kategorikanSkorSegmen(nilai) as StatusArea
+function warna(skor: number) {
+  if (skor <= 0) return { isi: 'fill-brand-600/8', garis: 'stroke-brand-600/25' }
+  if (skor <= AMBANG_SEGMEN_SEDANG)
+    return { isi: 'fill-risiko-rendah/40', garis: 'stroke-risiko-rendah/70' }
+  if (skor <= AMBANG_SEGMEN_TINGGI)
+    return { isi: 'fill-risiko-sedang/45', garis: 'stroke-risiko-sedang/70' }
+  return { isi: 'fill-risiko-tinggi/50', garis: 'stroke-risiko-tinggi/70' }
 }
 
-function keterangan(kode: string): string {
-  const nama = namaSegmen.get(kode) ?? kode
-  const petunjuk = petunjukSegmen.get(kode)
-  const judul = petunjuk ? `${nama} (${petunjuk})` : nama
-  const nilai = props.skor[kode]
-  // "Belum dijawab" sengaja dihindari: segmen yang tidak ditandai memang
-  // dikirim sebagai "tidak pernah ada keluhan", jadi ia sudah terjawab.
-  if (nilai === undefined || nilai <= 0) return `${judul} — tidak ada keluhan`
-  return `${judul} — skor ${nilai}`
+function label(a: { nama: string; petunjuk: string | null; skor: number }) {
+  const bagian = [a.nama]
+  if (a.petunjuk) bagian.push(a.petunjuk)
+  bagian.push(a.skor > 0 ? `skor ${a.skor}` : 'belum ditandai')
+  return bagian.join(', ')
 }
-
-/** Penapis cahaya dipasang saat segmen berkeluhan atau sedang disorot. */
-function penapis(kode: string): string | undefined {
-  return GAYA[status(kode)].pendar || fokus.value === kode
-    ? 'url(#pendar-segmen)'
-    : undefined
-}
-
-function tekan(event: KeyboardEvent, kode: string) {
-  if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault()
-    emit('pilih', kode)
-  }
-}
-
-/** Setengah lingkaran bawah — bagian cincin yang lewat di DEPAN figur. */
-function busurDepan(cx: number, cy: number, rx: number, ry: number): string {
-  return `M ${cx - rx} ${cy} A ${rx} ${ry} 0 0 1 ${cx + rx} ${cy}`
-}
-
-const TAMPAK: readonly Tampak[] = ['DEPAN', 'BELAKANG']
-const areaTersusun = [
-  ...AREA_SENTUH.filter((a) => a.tampak === 'DEPAN'),
-  ...AREA_SENTUH.filter((a) => a.tampak === 'BELAKANG'),
-]
 </script>
 
 <template>
-  <div class="peta-holo rounded-kartu p-3.5">
-    <div class="mb-1 flex justify-around text-xs font-bold tracking-wide text-brand-100">
-      <span>{{ JUDUL_TAMPAK.DEPAN.label }}</span>
-      <span>{{ JUDUL_TAMPAK.BELAKANG.label }}</span>
-    </div>
+  <figure class="rounded-kartu border border-garis bg-white p-3">
+    <figcaption
+      class="mb-1 flex items-baseline justify-center gap-2 text-center text-[11px] text-ink-500"
+    >
+      <span class="font-bold text-ink">Tampak belakang</span>
+      <span>· sisi kanan layar = sisi kanan Anda</span>
+    </figcaption>
 
+    <!--
+      Lebar dibatasi 260px, bukan lebih kecil. Perbandingan figur Cornell
+      ±1:3, jadi setiap pengecilan lebar langsung memangkas tinggi area sentuh:
+      di bawah 260px, pita bahu turun ke bawah 44px dan tidak lagi layak
+      dikenai jari. Konsekuensinya gambar ini tinggi (±800px) dan halaman perlu
+      digulir — itu ditukar dengan target sentuh yang benar-benar bisa dikenai,
+      dan daftar nama di bawah peta tetap menjadi jalur cepat.
+    -->
     <svg
       :viewBox="`0 0 ${LEBAR_KANVAS} ${TINGGI_KANVAS}`"
-      class="w-full touch-manipulation"
+      class="mx-auto block w-full max-w-[260px] touch-manipulation"
       role="group"
-      aria-label="Peta tubuh — pilih bagian yang terasa nyeri"
+      aria-label="Peta tubuh — tampak belakang"
     >
-      <defs>
-        <radialGradient id="latar-holo" cx="50%" cy="42%" r="72%">
-          <stop offset="0%" stop-color="#155e46" />
-          <stop offset="55%" stop-color="#0a3226" />
-          <stop offset="100%" stop-color="#04160f" />
-        </radialGradient>
-
-        <linearGradient id="isi-tubuh" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#34d399" stop-opacity="0.34" />
-          <stop offset="55%" stop-color="#2dd4bf" stop-opacity="0.22" />
-          <stop offset="100%" stop-color="#0f766e" stop-opacity="0.14" />
-        </linearGradient>
-
-        <linearGradient id="berkas" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#34d399" stop-opacity="0" />
-          <stop offset="35%" stop-color="#a7f3d0" stop-opacity="0.4" />
-          <stop offset="65%" stop-color="#a7f3d0" stop-opacity="0.4" />
-          <stop offset="100%" stop-color="#34d399" stop-opacity="0" />
-        </linearGradient>
-
-        <!-- Pendar hijau untuk siluet dan cincin -->
-        <filter id="pendar-tubuh" x="-30%" y="-15%" width="160%" height="130%">
-          <feGaussianBlur stdDeviation="2.6" result="kabur" />
-          <feMerge>
-            <feMergeNode in="kabur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-
-        <!-- Pendar untuk area segmen yang sedang menyala -->
-        <filter id="pendar-segmen" x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="2.2" result="kabur" />
-          <feMerge>
-            <feMergeNode in="kabur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-
-        <!-- Bintik cahaya hanya boleh tampil di dalam tubuh -->
-        <clipPath id="klip-figur">
-          <path :d="FIGUR_TUBUH" />
-        </clipPath>
-      </defs>
-
-      <rect
-        x="0"
-        y="0"
-        :width="LEBAR_KANVAS"
-        :height="TINGGI_KANVAS"
-        rx="12"
-        fill="url(#latar-holo)"
-      />
-
-      <!-- Dua figur: geometri sama, digeser 200 unit untuk tampak belakang -->
+      <!-- Area sentuh + warna keluhan, digambar di bawah garis anatomi -->
       <g
-        v-for="t in TAMPAK"
-        :key="t"
-        :transform="`translate(${PUSAT_TAMPAK[t] - PUSAT_TAMPAK.DEPAN} 0)`"
-      >
-        <!-- Berkas cahaya vertikal -->
-        <line
-          v-for="(dx, i) in BERKAS_CAHAYA"
-          :key="`berkas-${i}`"
-          :x1="PUSAT_TAMPAK.DEPAN + dx"
-          y1="10"
-          :x2="PUSAT_TAMPAK.DEPAN + dx"
-          y2="312"
-          stroke="url(#berkas)"
-          stroke-width="1.5"
-        />
-
-        <!-- Separuh cincin yang lewat di BELAKANG figur -->
-        <g filter="url(#pendar-tubuh)">
-          <ellipse
-            v-for="(c, i) in CINCIN"
-            :key="`cincin-belakang-${i}`"
-            :cx="PUSAT_TAMPAK.DEPAN"
-            :cy="c.cy"
-            :rx="c.rx"
-            :ry="c.ry"
-            fill="none"
-            stroke="#34d399"
-            stroke-width="1.1"
-            stroke-opacity="0.45"
-            class="cincin"
-            :style="{ animationDelay: `${i * 0.35}s` }"
-          />
-        </g>
-
-        <!-- Siluet tubuh -->
-        <g filter="url(#pendar-tubuh)">
-          <path
-            :d="FIGUR_TUBUH"
-            fill="url(#isi-tubuh)"
-            stroke="#a7f3d0"
-            stroke-width="0.9"
-            stroke-opacity="0.85"
-            stroke-linejoin="round"
-          />
-        </g>
-
-        <!-- Bintik cahaya di dalam tubuh -->
-        <g clip-path="url(#klip-figur)" fill="#ecfdf5">
-          <circle
-            v-for="(p, i) in PARTIKEL"
-            :key="`titik-${i}`"
-            :cx="p.x"
-            :cy="p.y"
-            :r="p.r"
-            :opacity="p.o"
-          />
-        </g>
-
-        <!-- Garis anatomi -->
-        <path
-          :d="DETAIL_TAMPAK[t]"
-          fill="none"
-          stroke="#a7f3d0"
-          stroke-width="0.7"
-          stroke-opacity="0.5"
-          stroke-linecap="round"
-        />
-
-        <!-- Separuh cincin yang lewat di DEPAN figur -->
-        <g filter="url(#pendar-tubuh)">
-          <path
-            v-for="(c, i) in CINCIN"
-            :key="`cincin-depan-${i}`"
-            :d="busurDepan(PUSAT_TAMPAK.DEPAN, c.cy, c.rx, c.ry)"
-            fill="none"
-            stroke="#a7f3d0"
-            stroke-width="1.6"
-            stroke-opacity="0.9"
-            stroke-linecap="round"
-            class="cincin"
-            :style="{ animationDelay: `${i * 0.35}s` }"
-          />
-        </g>
-      </g>
-
-      <!-- Garis pemisah dua tampak -->
-      <line
-        x1="200"
-        y1="16"
-        x2="200"
-        y2="290"
-        stroke="#34d399"
-        stroke-opacity="0.25"
-        stroke-width="1"
-        stroke-dasharray="3 7"
-      />
-
-      <!-- Area segmen yang dapat dipilih -->
-      <g
-        v-for="a in areaTersusun"
+        v-for="a in area"
         :key="a.kode"
+        :class="props.interaktif ? 'cursor-pointer' : undefined"
         :role="props.interaktif ? 'button' : undefined"
         :tabindex="props.interaktif ? 0 : undefined"
-        :class="[
-          'outline-none transition-opacity duration-150',
-          props.interaktif ? 'cursor-pointer' : 'pointer-events-none',
-        ]"
-        :style="{ opacity: opasitas(a.kode) }"
-        :aria-label="props.interaktif ? keterangan(a.kode) : undefined"
+        :aria-label="props.interaktif ? label(a) : undefined"
         :aria-pressed="props.interaktif ? props.aktif === a.kode : undefined"
         @click="props.interaktif && emit('pilih', a.kode)"
-        @keydown="props.interaktif && tekan($event, a.kode)"
+        @keydown.enter.prevent="props.interaktif && emit('pilih', a.kode)"
+        @keydown.space.prevent="props.interaktif && emit('pilih', a.kode)"
         @pointerenter="props.interaktif && (disorot = a.kode)"
         @pointerleave="props.interaktif && (disorot = null)"
         @focus="props.interaktif && (disorot = a.kode)"
         @blur="props.interaktif && (disorot = null)"
       >
-        <!--
-          Lapisan tak terlihat yang memperbesar target sentuh. Ukurannya
-          dihitung di `lib/cmdq/bodymap.ts` sebagai setengah jarak ke tetangga
-          terdekat, sehingga dua area tidak pernah saling menindih. Bantalan
-          tetap ±5 unit sebelumnya membuat ketukan pada BOKONG tercatat sebagai
-          PANTAT.
-        -->
-        <rect
-          :x="a.sentuh.x"
-          :y="a.sentuh.y"
-          :width="a.sentuh.w"
-          :height="a.sentuh.h"
-          fill="transparent"
-        />
         <rect
           :x="a.x"
           :y="a.y"
           :width="a.w"
           :height="a.h"
-          :rx="a.rx ?? Math.min(a.w, a.h) / 2"
-          :fill="GAYA[status(a.kode)].isi"
-          :stroke="fokus === a.kode ? '#ffffff' : GAYA[status(a.kode)].garis"
-          :stroke-width="fokus === a.kode ? 2 : GAYA[status(a.kode)].tebal"
-          :filter="penapis(a.kode)"
-          :transform="transformasi(a, a.kode)"
-          class="transition-[fill,stroke,stroke-width,transform] duration-150"
-          style="transform-box: view-box"
+          rx="4"
+          :class="[
+            warna(a.skor).isi,
+            fokus === a.kode ? 'stroke-aksen' : warna(a.skor).garis,
+          ]"
+          :stroke-width="fokus === a.kode ? 2.4 : 0.8"
         />
-        <title>{{ keterangan(a.kode) }}</title>
+
+        <!-- Angka skor di tengah area, hanya bila ada keluhan -->
+        <text
+          v-if="a.skor > 0"
+          :x="a.pusat.x"
+          :y="a.pusat.y + 4"
+          text-anchor="middle"
+          font-size="11"
+          class="pointer-events-none fill-ink font-extrabold"
+        >
+          {{ a.skor }}
+        </text>
       </g>
 
-      <!-- Nama segmen yang sedang disorot, tampil di lorong antara dua figur -->
-      <text
-        v-if="fokus"
-        :x="LEBAR_KANVAS / 2"
-        :y="TINGGI_KANVAS - 6"
-        text-anchor="middle"
-        font-size="13"
-        font-weight="700"
-        fill="#a7f3d0"
+      <!-- Garis anatomi Cornell — di atas warna, tidak menangkap sentuhan -->
+      <g
+        class="pointer-events-none fill-none"
+        stroke-linecap="round"
+        stroke-linejoin="round"
       >
-        {{ namaSegmen.get(fokus) }}
-      </text>
+        <path :d="JALUR_TUBUH" class="stroke-ink" stroke-width="1.6" />
+        <path :d="JALUR_DETAIL" class="stroke-ink-500" stroke-width="1" />
+      </g>
     </svg>
 
-    <p class="mt-2 text-center text-xs text-brand-100/85" aria-live="polite">
+    <!-- Nama bagian yang sedang disorot — muncul di tempat tetap supaya tidak
+         tertutup jari, dan tingginya dikunci agar peta tidak melompat. -->
+    <p
+      class="mt-1.5 min-h-9 text-center text-[13px] leading-tight"
+      aria-live="polite"
+    >
       <template v-if="fokus">
-        {{ keterangan(fokus) }}<template v-if="props.interaktif"> — ketuk untuk mengisi</template>
-      </template>
-      <template v-else-if="props.interaktif">
-        Ketuk bagian tubuh yang terasa nyeri
-      </template>
-      <template v-else>Warna menunjukkan tingkat keluhan yang Anda laporkan</template>
-    </p>
-
-    <!--
-      Aturan pengisian dinyatakan terbuka. Tanpa kalimat ini responden melihat
-      22 area "kosong" dan mengira kuesionernya belum lengkap — lalu membuka
-      satu per satu untuk menjawab "tidak pernah", yang menghasilkan data
-      persis sama dengan membiarkannya.
-    -->
-    <p
-      v-if="props.interaktif"
-      class="mt-2 text-center text-[11px] leading-relaxed text-brand-100/70"
-    >
-      Bagian yang tidak Anda tandai otomatis tercatat sebagai
-      <strong class="font-semibold">tidak ada keluhan</strong>. Tandai hanya yang
-      terasa nyeri.
-    </p>
-
-    <!-- Keterangan warna -->
-    <div
-      class="mt-3 flex flex-wrap justify-center gap-x-3.5 gap-y-1.5 border-t border-brand-400/25 pt-3 text-[11px] text-brand-100/75"
-    >
-      <span
-        v-for="k in [
-          { s: 'BELUM', t: 'Tidak ditandai — tidak ada keluhan' },
-          { s: 'RENDAH', t: 'Ringan' },
-          { s: 'SEDANG', t: 'Sedang' },
-          { s: 'TINGGI', t: 'Berat' },
-        ]"
-        :key="k.s"
-        class="inline-flex items-center gap-1.5"
-      >
+        <span class="font-bold text-ink">
+          {{ area.find((a) => a.kode === fokus)?.nama }}
+        </span>
         <span
-          class="inline-block h-3 w-3 rounded-full border"
-          :style="{
-            background: GAYA[k.s as StatusArea].isi,
-            borderColor: GAYA[k.s as StatusArea].garis,
-          }"
-          aria-hidden="true"
-        />
-        {{ k.t }}
+          v-if="area.find((a) => a.kode === fokus)?.petunjuk"
+          class="block text-[11px] text-ink-500"
+        >
+          {{ area.find((a) => a.kode === fokus)?.petunjuk }}
+        </span>
+      </template>
+      <span v-else-if="props.interaktif" class="text-ink-500">
+        Sentuh bagian tubuh yang terasa ada keluhan
       </span>
-    </div>
-
-    <p
-      class="mt-2.5 rounded-input border border-brand-400/25 bg-brand-400/10 px-3 py-2 text-[11px] leading-relaxed text-brand-100/90"
-    >
-      <strong>Catatan:</strong> tampak depan digambar seperti bercermin — sisi
-      <em>kiri</em> Anda berada di sebelah kanan gambar. Nama bagian tubuh selalu
-      muncul saat Anda menyentuhnya, jadi tidak perlu ragu.
     </p>
-  </div>
+  </figure>
 </template>
-
-<style scoped>
-.peta-holo {
-  background: radial-gradient(120% 90% at 50% 0%, #17624a 0%, #0a3226 55%, #04160f 100%);
-  border: 1px solid rgb(52 211 153 / 0.25);
-  box-shadow:
-    0 0 0 1px rgb(4 22 15 / 0.6),
-    0 14px 34px rgb(10 50 38 / 0.45);
-}
-
-/* Denyut halus pada cincin cahaya; dimatikan lewat aturan
-   prefers-reduced-motion global di assets/css/main.css. */
-.cincin {
-  animation: denyut-cincin 4.5s ease-in-out infinite;
-  transform-box: view-box;
-  transform-origin: center;
-}
-
-@keyframes denyut-cincin {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-</style>

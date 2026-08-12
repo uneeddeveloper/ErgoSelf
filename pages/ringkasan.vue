@@ -24,7 +24,7 @@ function cetak() {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="mx-auto max-w-3xl space-y-4">
     <p v-if="pending" class="text-sm text-ink-500">Menyusun laporan…</p>
 
     <div v-else-if="error && belumAdaData(error)" class="kartu space-y-3 p-6 text-center">
@@ -128,7 +128,7 @@ function cetak() {
           </p>
 
           <!-- Laporan hanya membaca: tanpa `interaktif` peta ini menyisakan
-               28 perhentian tab yang tidak melakukan apa pun. -->
+               18 perhentian tab yang tidak melakukan apa pun. -->
           <PetaTubuh
             v-if="laporan.cmdq.jumlahSegmenBermasalah > 0"
             :skor="laporan.cmdq.skorPerSegmen"
@@ -164,6 +164,52 @@ function cetak() {
             </span>
           </div>
         </div>
+      </section>
+
+      <!-- ── Keluhan tangan (CHDQ) ─────────────────────────────────────── -->
+      <section v-if="laporan.chdq" class="kartu space-y-3 p-4.5">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="text-[15px] font-bold text-ink-700">Keluhan Tangan</h2>
+          <span class="text-xs font-semibold text-ink-500">
+            {{ laporan.chdq.labelKategoriRisiko }}
+          </span>
+        </div>
+
+        <p class="text-[32px] leading-none font-extrabold text-ink">
+          {{ laporan.chdq.skorTotal
+          }}<span class="text-sm font-semibold text-ink-500">
+            / {{ laporan.chdq.skorTotalMaks }}</span
+          >
+        </p>
+
+        <dl class="grid grid-cols-2 gap-2 text-center">
+          <div class="rounded-input bg-panel px-2 py-2">
+            <dt class="text-[11px] text-ink-500">Tangan kanan</dt>
+            <dd class="text-sm font-extrabold text-ink">
+              {{ laporan.chdq.skorTanganKanan }}
+            </dd>
+          </div>
+          <div class="rounded-input bg-panel px-2 py-2">
+            <dt class="text-[11px] text-ink-500">Tangan kiri</dt>
+            <dd class="text-sm font-extrabold text-ink">
+              {{ laporan.chdq.skorTanganKiri }}
+            </dd>
+          </div>
+        </dl>
+
+        <p class="text-xs text-ink-600">
+          {{ laporan.chdq.jumlahAreaBermasalah }} dari
+          {{ laporan.chdq.jumlahAreaDinilai }} area tangan dilaporkan bermasalah<template
+            v-if="laporan.chdq.areaTertinggi"
+          >, terberat pada
+            <strong>{{ laporan.chdq.areaTertinggi.nama }}</strong>
+            ({{
+              laporan.chdq.areaTertinggi.tangan === 'KANAN'
+                ? 'tangan kanan'
+                : 'tangan kiri'
+            }})</template
+          >.
+        </p>
       </section>
 
       <!-- ── Skor SUS ──────────────────────────────────────────────────── -->
