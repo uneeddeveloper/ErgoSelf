@@ -1,17 +1,18 @@
 import { LABEL_JENIS } from '~~/server/utils/master'
 
 /**
- * DELETE /api/admin/master/divisi/:id — menghapus entri yang BELUM dipakai.
+ * DELETE /api/admin/master/divisi/:id — menghapus entri master divisi/jabatan.
  *
- * Entri yang sudah dirujuk responden TIDAK BOLEH dihapus, dan penolakannya
- * ditegakkan di sini alih-alih dibiarkan menjadi galat foreign key. Alasannya
- * bukan sekadar pesan yang lebih ramah: kalau penghapusan berhasil, satu-satunya
- * jejak yang tersisa adalah teks `responden.divisi`, dan pertanyaan "responden
- * ini memilih dari daftar atau mengetik sendiri lewat Lainnya?" tidak bisa
- * dijawab lagi. Perbedaan itu menentukan apakah kategorinya sah dianalisis.
+ * Entri yang sudah dirujuk responden tetap BISA dihapus. Sebelum dihapus,
+ * `divisiId`/`jabatanId` pada seluruh responden yang memakainya di-set NULL
+ * dalam satu transaksi. Kolom teks `divisi`/`jabatan` TIDAK disentuh — nama
+ * yang dipilih responden pada saat pengisian tetap tersimpan, sehingga data
+ * historis tidak hilang. Yang hilang hanya tautan ke entri master.
  *
- * Untuk menyingkirkan pilihan dari form tanpa menghapus data, panel admin
- * menyediakan tombol nonaktifkan (PUT dengan `aktif: false`).
+ * Dampak ini dikomunikasikan ke admin lewat dialog konfirmasi di panel.
+ *
+ * Untuk sekadar menyembunyikan pilihan dari form tanpa mengubah data apa pun,
+ * pakai tombol nonaktifkan (PUT dengan `aktif: false`).
  */
 export default defineEventHandler(async (event) => {
   await wajibAdmin(event)
@@ -31,14 +32,18 @@ export default defineEventHandler(async (event) => {
   }
 
   const jumlahPemakai = await hitungPemakai(jenis, id)
-  if (jumlahPemakai > 0) {
-    throw createError({
-      statusCode: 409,
-      statusMessage: `"${ada.nama}" sudah dipakai ${jumlahPemakai} responden dan tidak bisa dihapus. Nonaktifkan saja agar tidak lagi muncul pada form responden baru.`,
-    })
-  }
 
-  await tabelMaster(jenis).delete({ where: { id } })
+  // Hapus dalam satu transaksi: putus FK responden dulu, baru hapus master.
+  // Urutan ini wajib karena relasi memakai onDelete: Restrict.
+  await prisma.$transaction(async (tx) => {
+    if (jumlahPemakai > 0) {
+      await tx.responden.updateMany({
+        where: jenis === 'divisi' ? { divisiId: id } : { jabatanId: id },
+        data: jenis === 'divisi' ? { divisiId: null } : { jabatanId: null },
+      })
+    }
+    await (jenis === 'divisi' ? tx.divisi : tx.jabatan).delete({ where: { id } })
+  })
 
-  return { sukses: true, id, nama: ada.nama }
+  return { sukses: true, id, nama: ada.nama, jumlahPemakai }
 })

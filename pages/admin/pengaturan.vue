@@ -144,12 +144,26 @@ async function ubahAktif(jenis: JenisMaster, entri: EntriMaster) {
 }
 
 async function hapus(jenis: JenisMaster, entri: EntriMaster) {
+  if (entri.jumlahResponden > 0) {
+    const lanjut = window.confirm(
+      `"${entri.nama}" dipakai oleh ${entri.jumlahResponden} responden.\n\n` +
+      `Nama divisi/jabatan mereka TETAP TERSIMPAN di data, tapi tautan ke daftar master ini akan diputus.\n\n` +
+      `Yakin ingin menghapus?`,
+    )
+    if (!lanjut) return
+  }
+
   sibuk.value = true
   kabar.value = null
   try {
     await $fetch(`/api/admin/master/${jenis}/${entri.id}`, { method: 'DELETE' })
     await muatUlang(jenis)
-    kabar.value = { nada: 'baik', teks: `"${entri.nama}" dihapus.` }
+    kabar.value = {
+      nada: 'baik',
+      teks: entri.jumlahResponden > 0
+        ? `"${entri.nama}" dihapus. Tautan dari ${entri.jumlahResponden} responden diputus; nama mereka tetap tercatat.`
+        : `"${entri.nama}" dihapus.`,
+    }
   } catch (error) {
     kabar.value = { nada: 'buruk', teks: pesanGalat(error, 'Gagal menghapus.') }
   } finally {
@@ -335,13 +349,7 @@ async function hitungAmbang(instrumen: 'CMDQ' | 'CHDQ') {
                       >
                         {{ entri.aktif ? 'Nonaktifkan' : 'Aktifkan' }}
                       </button>
-                      <!--
-                        Tombol hapus hanya muncul untuk entri yang belum dipakai
-                        siapa pun. Untuk entri terpakai, satu-satunya jalan
-                        adalah menonaktifkan — lihat alasannya di route DELETE.
-                      -->
                       <button
-                        v-if="entri.jumlahResponden === 0"
                         type="button"
                         class="konsol-tombol h-7 px-2 text-risiko-tinggi hover:border-risiko-tinggi hover:bg-risiko-tinggi-bg"
                         :disabled="sibuk"
