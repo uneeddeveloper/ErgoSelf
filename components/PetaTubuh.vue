@@ -80,10 +80,10 @@ function warna(skor: number) {
   return { isi: 'fill-risiko-tinggi/50', garis: 'stroke-risiko-tinggi/70' }
 }
 
-function label(a: { nama: string; petunjuk: string | null; skor: number }) {
+function label(a: { kode: string; nama: string; petunjuk: string | null; skor: number }) {
   const bagian = [a.nama]
   if (a.petunjuk) bagian.push(a.petunjuk)
-  bagian.push(a.skor > 0 ? `skor ${a.skor}` : 'belum ditandai')
+  bagian.push(props.skor[a.kode] !== undefined ? `skor ${a.skor}` : 'belum ditandai')
   return bagian.join(', ')
 }
 </script>
@@ -143,7 +143,7 @@ function label(a: { nama: string; petunjuk: string | null; skor: number }) {
 
         <!-- Angka skor di tengah area, hanya bila ada keluhan -->
         <text
-          v-if="a.skor > 0"
+          v-if="props.skor[a.kode] !== undefined"
           :x="a.pusat.x"
           :y="a.pusat.y + 4"
           text-anchor="middle"

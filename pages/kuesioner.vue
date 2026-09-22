@@ -52,17 +52,12 @@ watch(
   tersimpan,
   (nilai) => {
     if (!nilai?.perSegmen) return
-
-    // JANGAN menimpa jawaban yang sudah ada di layar. Permintaan di atas tidak
-    // memblokir hidrasi, jadi halaman sudah bisa diketuk sebelum jawabannya
-    // tiba. Sebelum penjaga ini ada, responden yang menandai satu bagian dalam
-    // jeda tersebut kehilangan tandanya secara diam-diam — tertimpa keadaan
-    // server yang mungkin kosong.
     if (Object.keys(jawaban.value).length > 0) return
 
     const hasil: Record<string, JawabanSegmen> = {}
     for (const s of nilai.perSegmen) {
-      // Hanya segmen berkeluhan yang perlu tampil sebagai "sudah ditandai"
+      // ✅ KEMBALIKAN KE KONDISI INI:
+      // Hanya muat segmen yang memang ada keluhan (> 0) dari database server
       if (s.frekuensiKode > 0) {
         hasil[s.kodeSegmen] = {
           frekuensiKode: s.frekuensiKode,
@@ -156,12 +151,7 @@ function gayaSkor(skor: number) {
 
 function simpanSegmen(nilai: JawabanSegmen) {
   if (!segmenAktif.value) return
-  if (nilai.frekuensiKode === 0) {
-    // "Tidak pernah" = sama saja dengan tidak ditandai
-    delete jawaban.value[segmenAktif.value]
-  } else {
-    jawaban.value[segmenAktif.value] = nilai
-  }
+  jawaban.value[segmenAktif.value] = nilai
   segmenAktif.value = null
 }
 
@@ -283,7 +273,7 @@ async function kirim() {
               type="button"
               class="touch-target rounded-input border px-2.5 py-2 text-left text-xs leading-tight transition"
               :class="
-                skorPerSegmen[s.kode]
+                jawaban[s.kode] !== undefined
                   ? 'border-aksen bg-aksen-lembut font-bold text-aksen-teks'
                   : 'border-garis-kuat bg-isian text-ink-700 hover:border-brand-600'
               "
@@ -293,8 +283,8 @@ async function kirim() {
               <span v-if="s.petunjuk" class="mt-0.5 block text-[10px] font-normal text-ink-500">
                 {{ s.petunjuk }}
               </span>
-              <span v-if="skorPerSegmen[s.kode]" class="mt-0.5 block text-[10px]">
-                skor {{ skorPerSegmen[s.kode] }}
+              <span v-if="jawaban[s.kode] !== undefined" class="mt-0.5 block text-[10px]">
+                skor {{ skorPerSegmen[s.kode] ?? 0 }}
               </span>
             </button>
           </div>
@@ -342,7 +332,7 @@ async function kirim() {
           <span class="block text-sm font-bold text-ink">{{ d.nama }}</span>
           <span class="block text-xs text-ink-500">
             Frekuensi {{ d.j.frekuensiKode }}/4 · Ketidaknyamanan
-            {{ d.j.ketidaknyamananSkor }}/3 · Gangguan {{ d.j.gangguanSkor }}/3
+            {{ d.j.ketidaknyamananSkor ?? 0 }}/3 · Gangguan {{ d.j.gangguanSkor ?? 0 }}/3
           </span>
         </span>
         <span

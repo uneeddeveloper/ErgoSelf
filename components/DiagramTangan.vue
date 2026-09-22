@@ -140,7 +140,7 @@ function gayaTombol(skor: number, terpilih: boolean) {
             class="cursor-pointer"
             role="button"
             tabindex="0"
-            :aria-label="`Area ${a.huruf}, ${a.nama}${a.skor > 0 ? `, skor ${a.skor}` : ', belum ditandai'}`"
+            :aria-label="`Area ${a.huruf}, ${a.nama}${props.skor[a.kode] !== undefined ? `, skor ${a.skor}` : ', belum ditandai'}`"
             :aria-pressed="props.aktif === a.kode"
             @click="emit('pilih', a.kode)"
             @keydown.enter.prevent="emit('pilih', a.kode)"
@@ -178,7 +178,7 @@ function gayaTombol(skor: number, terpilih: boolean) {
             font-size="6"
             class="fill-ink font-extrabold"
           >
-            {{ a.huruf }}
+            {{ props.skor[a.kode] !== undefined ? a.skor : a.huruf }}
           </text>
         </g>
       </g>
@@ -206,12 +206,12 @@ function gayaTombol(skor: number, terpilih: boolean) {
         type="button"
         class="touch-target flex flex-col items-center justify-center rounded-input border px-0.5 py-1 transition"
         :class="gayaTombol(a.skor, props.aktif === a.kode)"
-        :aria-label="`Area ${a.huruf}, ${a.nama}${a.skor > 0 ? `, skor ${a.skor}` : ', belum ditandai'}`"
+        :aria-label="`Area ${a.huruf}, ${a.nama}${props.skor[a.kode] !== undefined ? `, skor ${a.skor}` : ', belum ditandai'}`"
         @click="emit('pilih', a.kode)"
       >
         <span class="text-sm leading-none font-extrabold">{{ a.huruf }}</span>
         <span
-          v-if="a.skor > 0"
+          v-if="props.skor[a.kode] !== undefined"
           class="mt-0.5 text-[9px] leading-none font-bold tabular-nums"
         >
           {{ a.skor }}

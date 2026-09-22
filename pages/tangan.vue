@@ -133,11 +133,7 @@ function gayaSkor(skor: number) {
 
 function simpanArea(nilai: JawabanArea) {
   if (!areaAktif.value) return
-  if (nilai.frekuensiKode === 0) {
-    delete jawaban.value[areaAktif.value]
-  } else {
-    jawaban.value[areaAktif.value] = nilai
-  }
+  jawaban.value[areaAktif.value] = nilai
   areaAktif.value = null
 }
 
@@ -267,7 +263,7 @@ async function kirim() {
               type="button"
               class="touch-target rounded-input border px-2.5 py-2 text-left text-xs leading-tight transition"
               :class="
-                skorPerArea[a.kode]
+                jawaban[a.kode] !== undefined
                   ? 'border-aksen bg-aksen-lembut font-bold text-aksen-teks'
                   : 'border-garis-kuat bg-isian text-ink-700 hover:border-brand-600'
               "
@@ -277,8 +273,8 @@ async function kirim() {
               <span class="mt-0.5 block text-[10px] font-normal text-ink-500">
                 {{ a.petunjuk }}
               </span>
-              <span v-if="skorPerArea[a.kode]" class="mt-0.5 block text-[10px]">
-                skor {{ skorPerArea[a.kode] }}
+              <span v-if="jawaban[a.kode] !== undefined" class="mt-0.5 block text-[10px]">
+                skor {{ skorPerArea[a.kode] ?? 0 }}
               </span>
             </button>
           </div>
@@ -321,7 +317,7 @@ async function kirim() {
           <span class="block text-sm font-bold text-ink">{{ d.judul }}</span>
           <span class="block text-xs text-ink-500">
             Frekuensi {{ d.j.frekuensiKode }}/4 · Ketidaknyamanan
-            {{ d.j.ketidaknyamananSkor }}/3 · Gangguan {{ d.j.gangguanSkor }}/3
+            {{ d.j.ketidaknyamananSkor ?? 0 }}/3 · Gangguan {{ d.j.gangguanSkor ?? 0 }}/3
           </span>
         </span>
         <span
